@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en" x-data="{ dark: localStorage.getItem('ff-dark') === '1' }" x-init="$watch('dark', v => localStorage.setItem('ff-dark', v ? '1' : '0')); document.documentElement.classList.toggle('dark', dark)" :class="{ 'dark': dark }">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{{ title or "Dashboard" }} · {{ app_name }}</title>
+  <meta name="description" content="FutureFunds - personal expense tracker" />
+
+  <!-- Tailwind Play CDN (Phase 1; will be replaced with a compiled stylesheet in production). -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: [
+              'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"',
+              'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'
+            ],
+            mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+          },
+          colors: {
+            // Single-accent palette: indigo-600. Add aliases used in templates.
+            accent: {
+              50:  '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            },
+            positive: { 500: '#22c55e', 600: '#16a34a' },
+            negative: { 500: '#ef4444', 600: '#dc2626' },
+          },
+          borderRadius: { 'lg': '0.5rem', 'xl': '0.75rem' },
+        },
+      },
+    };
+  </script>
+
+  <!-- HTMX -->
+  <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
+
+  <!-- Alpine.js -->
+  <script src="https://unpkg.com/alpinejs@3.13.10" defer></script>
+
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
+
+  <!-- App stylesheet (small overrides + transitions). -->
+  <link rel="stylesheet" href="{{ url_for('static', path='css/app.css') }}" />
+
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z'/%3E%3C/svg%3E" />
+</head>
+
+<body class="min-h-screen bg-neutral-50 text-neutral-900 antialiased dark:bg-neutral-950 dark:text-neutral-100 font-sans">
+
+  <!-- Header -->
+  <header class="sticky top-0 z-30 border-b border-neutral-200 bg-white/80 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/80">
+    <div class="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
+      <a href="/" class="flex items-center gap-2 font-semibold tracking-tight">
+        <span class="inline-block h-6 w-6 rounded-md bg-accent-600"></span>
+        <span>{{ app_name }}</span>
+      </a>
+
+      <nav class="hidden gap-1 text-sm md:flex">
+        <a href="/" class="rounded-md px-3 py-1.5 text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-900">Dashboard</a>
+        <a href="/accounts" class="rounded-md px-3 py-1.5 text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-900">Accounts</a>
+        <a href="/transactions" class="rounded-md px-3 py-1.5 text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-900">Transactions</a>
+        <a href="#" class="rounded-md px-3 py-1.5 text-neutral-400 dark:text-neutral-600" aria-disabled="true" title="Coming in Phase 5">Budgets</a>
+        <a href="#" class="rounded-md px-3 py-1.5 text-neutral-400 dark:text-neutral-600" aria-disabled="true" title="Coming in Phase 6">Recurring</a>
+      </nav>
+
+      <button
+        type="button"
+        @click="dark = !dark"
+        :aria-pressed="dark.toString()"
+        class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-neutral-200 text-neutral-700 hover:bg-neutral-100 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-900"
+        title="Toggle theme"
+      >
+        <!-- sun -->
+        <svg x-show="!dark" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        <!-- moon -->
+        <svg x-show="dark" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="mx-auto max-w-7xl px-4 py-8 text-xs text-neutral-500 sm:px-6 dark:text-neutral-500">
+    <p>{{ app_name }} · Phase 3 · <a class="underline hover:text-neutral-700 dark:hover:text-neutral-300" href="/docs" target="_blank" rel="noopener">API docs</a></p>
+  </footer>
+
+</body>
+</html>

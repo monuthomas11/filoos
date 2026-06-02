@@ -1,0 +1,25 @@
+/* FutureFunds - small overrides + transitions.
+   Tailwind handles the bulk of styling; this file is for things Tailwind
+   utility classes can't express as cleanly. */
+
+:root {
+  color-scheme: light dark;
+}
+
+html {
+  /* Smooth theme transition; disabled when user prefers reduced motion. */
+  transition: background-color 150ms ease, color 150ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { transition: none; }
+}
+
+body {
+  /* Subtle focus ring defaults; Tailwind focus-visible: utilities still take precedence. */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Hide the Tailwind Play CDN warning banner in dev (purely cosmetic). */
+#tailwind-play-cdn-warning { display: none !important; }

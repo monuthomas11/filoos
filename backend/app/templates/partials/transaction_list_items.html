@@ -1,0 +1,12 @@
+{% if transactions %}
+<div class="space-y-2" id="transaction-list">
+  {% for tx in transactions %}
+    {% include "partials/transaction_row.html" %}
+  {% endfor %}
+</div>
+{% else %}
+<div class="rounded-lg border border-dashed border-neutral-300 p-12 text-center dark:border-neutral-700">
+  <p class="text-neutral-500 dark:text-neutral-400">No transactions found.</p>
+  <a href="/transactions/new" class="mt-2 inline-block text-sm font-medium text-accent-600 hover:text-accent-700">Add your first transaction</a>
+</div>
+{% endif %}
