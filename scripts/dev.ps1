@@ -19,17 +19,22 @@ if (-not (Test-Path -LiteralPath $venv)) {
 Write-Host "[dev] activating $venvAct" -ForegroundColor Cyan
 & $venvAct
 
+# Normalize a bad DEBUG value from the shell environment.
+if ($env:DEBUG -and $env:DEBUG -notmatch '^(?i:true|false|1|0|yes|no|on|off)$') {
+    Write-Host "[dev] ignoring invalid DEBUG=$env:DEBUG; using true" -ForegroundColor Yellow
+    $env:DEBUG = "true"
+}
+
 # Install/update deps on every run (idempotent; pip is fast when up-to-date).
+Set-Location -LiteralPath $backend
 Write-Host "[dev] installing dependencies (editable + dev)" -ForegroundColor Cyan
 python -m pip install --upgrade pip | Out-Null
 python -m pip install -e ".[dev]" | Out-Null
 
 # Apply any pending migrations.
 Write-Host "[dev] applying database migrations" -ForegroundColor Cyan
-Set-Location -LiteralPath $backend
-alembic upgrade head
+python -m alembic upgrade head
 
 # Start uvicorn with auto-reload.
 Write-Host "[dev] starting uvicorn on http://127.0.0.1:8000" -ForegroundColor Green
-Set-Location -LiteralPath $backend
 python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
