@@ -15,6 +15,10 @@ html {
   html { transition: none; }
 }
 
+.dark input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+
 body {
   /* Subtle focus ring defaults; Tailwind focus-visible: utilities still take precedence. */
   -webkit-font-smoothing: antialiased;

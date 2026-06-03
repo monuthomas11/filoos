@@ -50,6 +50,16 @@
   <!-- App stylesheet (small overrides + transitions). -->
   <link rel="stylesheet" href="{{ url_for('static', path='css/app.css') }}" />
 
+  <!-- Dark-mode overrides for native form controls (bypasses cache issues with external CSS). -->
+  <style>
+    .dark input[type="date"] {
+      color-scheme: dark;
+    }
+    .dark input[type="date"]::-webkit-calendar-picker-indicator {
+      filter: invert(1);
+    }
+  </style>
+
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z'/%3E%3C/svg%3E" />
 </head>
 

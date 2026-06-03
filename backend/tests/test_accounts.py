@@ -125,13 +125,10 @@ def test_account_new_page(client: TestClient):
 
 def test_account_edit_page(client: TestClient):
     # Create via API first.
-    r = client.post("/accounts", data={"name": "Edit Me", "type": "credit_card"}, headers={"HX-Request": "true"})
-    assert r.status_code == 200
-    # Parse the returned HTML to find the account id.
-    import re
-    match = re.search(r'id="account-card-(\d+)"', r.text)
-    assert match, "expected account-card id in response"
-    account_id = match.group(1)
+    client.post("/accounts", data={"name": "Edit Me", "type": "credit_card"}, headers={"HX-Request": "true"})
+    # Find the account via the JSON API.
+    accounts = client.get("/api/accounts").json()
+    account_id = accounts[0]["id"]
 
     response = client.get(f"/accounts/{account_id}/edit")
     assert response.status_code == 200
@@ -161,32 +158,28 @@ def test_create_account_via_htmx(client: TestClient):
         headers={"HX-Request": "true"},
     )
     assert response.status_code == 200
-    assert "HTMX Cash" in response.text
-    assert "account-card-" in response.text
+    assert response.headers.get("HX-Redirect") == "/accounts"
 
 
 def test_update_account_via_htmx(client: TestClient):
     # Create first.
     r = client.post("/accounts", data={"name": "Before", "type": "bank"}, headers={"HX-Request": "true"})
-    import re
-    match = re.search(r'id="account-card-(\d+)"', r.text)
-    account_id = match.group(1)
+    assert r.headers.get("HX-Redirect") == "/accounts"
 
     response = client.patch(
-        f"/accounts/{account_id}",
+        "/accounts/1",
         data={"name": "After"},
         headers={"HX-Request": "true"},
     )
     assert response.status_code == 200
-    assert "After" in response.text
+    assert response.headers.get("HX-Redirect") == "/accounts"
 
 
 def test_delete_account_via_htmx(client: TestClient):
     # Create first.
-    r = client.post("/accounts", data={"name": "Delete Me", "type": "cash"}, headers={"HX-Request": "true"})
-    import re
-    match = re.search(r'id="account-card-(\d+)"', r.text)
-    account_id = match.group(1)
+    client.post("/accounts", data={"name": "Delete Me", "type": "cash"}, headers={"HX-Request": "true"})
+    accounts = client.get("/api/accounts").json()
+    account_id = accounts[0]["id"]
 
     response = client.delete(
         f"/accounts/{account_id}",
@@ -211,10 +204,9 @@ def test_list_accounts_json(client: TestClient):
 
 
 def test_get_account_json(client: TestClient):
-    r = client.post("/accounts", data={"name": "Single", "type": "investment"}, headers={"HX-Request": "true"})
-    import re
-    match = re.search(r'id="account-card-(\d+)"', r.text)
-    account_id = match.group(1)
+    client.post("/accounts", data={"name": "Single", "type": "investment"}, headers={"HX-Request": "true"})
+    accounts = client.get("/api/accounts").json()
+    account_id = accounts[0]["id"]
 
     response = client.get(f"/api/accounts/{account_id}")
     assert response.status_code == 200
@@ -227,14 +219,14 @@ def test_get_account_json_not_found(client: TestClient):
 
 
 def test_balance_json(client: TestClient):
-    r = client.post(
+    client.post(
         "/accounts",
         data={"name": "Bal", "type": "cash", "opening_balance": "2500"},
         headers={"HX-Request": "true"},
     )
-    import re
-    match = re.search(r'id="account-card-(\d+)"', r.text)
-    account_id = match.group(1)
+    # Find the account via the JSON API.
+    accounts = client.get("/api/accounts").json()
+    account_id = accounts[0]["id"]
 
     response = client.get(f"/api/accounts/{account_id}/balance")
     assert response.status_code == 200

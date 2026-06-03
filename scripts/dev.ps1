@@ -35,6 +35,6 @@ python -m pip install -e ".[dev]" | Out-Null
 Write-Host "[dev] applying database migrations" -ForegroundColor Cyan
 python -m alembic upgrade head
 
-# Start uvicorn with auto-reload.
+# Start uvicorn (single process; Ctrl+C cleanly stops it).
 Write-Host "[dev] starting uvicorn on http://127.0.0.1:8000" -ForegroundColor Green
-python -m uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000

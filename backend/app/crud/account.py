@@ -10,8 +10,11 @@ from app.models.account import ACCOUNT_TYPE_COLORS, Account
 from app.schemas.account import AccountCreate, AccountUpdate
 
 
-def list_accounts(db: Session) -> list[Account]:
-    return db.query(Account).order_by(Account.created_at).all()
+def list_accounts(db: Session, active_only: bool = False) -> list[Account]:
+    q = db.query(Account)
+    if active_only:
+        q = q.filter(Account.is_active.is_(True))
+    return q.order_by(Account.created_at).all()
 
 
 def get_account(db: Session, account_id: int) -> Account | None:

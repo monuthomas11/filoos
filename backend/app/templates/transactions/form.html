@@ -17,9 +17,6 @@
   <form
     id="transaction-form"
     hx-{{ hx_method.lower() }}="{{ form_action }}"
-    hx-target="#transaction-list"
-    hx-swap="beforeend"
-    hx-on::after-request="if(event.detail.successful){ document.getElementById('transaction-form').reset(); window.scrollTo(0,0); }"
     class="mt-6 space-y-5"
   >
     <!-- Type -->

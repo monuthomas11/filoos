@@ -59,6 +59,15 @@ alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
+### Seed demo data
+
+```bash
+# from the project root (with backend/.venv activated)
+python scripts/seed.py
+```
+
+Creates 4 accounts (Wallet, HDFC Bank, SBI Savings, Axis Credit Card) and 11 transaction rows with realistic INR amounts. Applies Alembic migrations automatically.
+
 ### Run the tests
 
 ```bash
@@ -116,7 +125,7 @@ FutureFunds/
 ## Development scripts
 
 - `scripts/dev.ps1` / `scripts/dev.sh` - one-shot dev launcher (venv, deps, migrations, uvicorn)
-- `scripts/seed.py` - placeholder; full INR demo data lands in Phase 8
+- `scripts/seed.py` - seed demo data (4 accounts, 11 transaction rows with INR amounts)
 - `scripts/build_css.sh` - placeholder for compiled Tailwind output
 
 ## License

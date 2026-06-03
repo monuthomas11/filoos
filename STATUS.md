@@ -3,6 +3,8 @@
 > **Read this first if you're a new agent/session/model.** It captures *where the project is right now* and the minimum context needed to continue. For full design rationale see [`PLAN.md`](./PLAN.md). For setup & usage see [`README.md`](./README.md).
 
 Last updated: end of **Phase 3 (Transactions)** — Phase 4 (Dashboard v1) is next.
+Post-Phase 3 bugfixes applied in a separate session (HTMX form redirect, filter 422,
+checkbox save, seed script).
 
 ---
 
@@ -11,7 +13,7 @@ Last updated: end of **Phase 3 (Transactions)** — Phase 4 (Dashboard v1) is ne
 | Field | Value |
 |---|---|
 | **Name** | FutureFunds (personal expense tracker) |
-| **Repo root** | `E:\Repos\vector-vision\` (this directory) |
+| **Repo root** | `E:\Repos\future-funds\` (this directory) |
 | **Backend** | `backend/` (FastAPI app) |
 | **Stack** | Python 3.11+ (verified on 3.14.4), FastAPI, SQLAlchemy 2.0, Alembic, Pydantic v2, pydantic-settings, Jinja2, HTMX 1.9, Alpine.js 3, Tailwind CSS (Play CDN for v1), Chart.js 4, pandas + numpy + statsmodels, pytest, ruff |
 | **Database** | SQLite at `data/expenses.db` (gitignored) |
@@ -74,7 +76,7 @@ Last updated: end of **Phase 3 (Transactions)** — Phase 4 (Dashboard v1) is ne
 - `dev.ps1` (Windows PowerShell 5.1+) — creates `.venv` if missing, activates it, installs `.[dev]`, runs `alembic upgrade head`, starts uvicorn on `127.0.0.1:8000` with `--reload`. Idempotent.
 - `dev.sh` (POSIX) — same flow, bash + `source bin/activate`.
 - `build_css.sh` — placeholder for future Tailwind standalone-CLI build. Skips cleanly if `tailwindcss` not on PATH.
-- `seed.py` — placeholder. Realistic INR demo data lands in Phase 8.
+- `seed.py` — real seeder (upgraded ahead-of-schedule). Creates 4 accounts (Wallet, HDFC Bank, SBI Savings, Axis Credit Card) + 11 transaction rows with INR amounts. Runs `alembic upgrade head` programmatically.
 
 ### Root files
 
@@ -98,6 +100,10 @@ Last updated: end of **Phase 3 (Transactions)** — Phase 4 (Dashboard v1) is ne
 - ✅ `GET /healthz` → 200, `{"status":"ok","app":"FutureFunds"}`.
 - ✅ `GET /static/css/app.css` → 200, `Content-Type: text/css; charset=utf-8`.
 - ✅ `pytest -q` → **54 passed, 0 failed** (3 smoke + 20 accounts + 2 helpers + 29 transactions).
+- ✅ `GET /transactions?account=&type=&from=2026-05-24&to=2026-06-03&q=` → 200 (no more 422 from empty int parameter).
+- ✅ `scripts/seed.py` creates 4 accounts + 11 transaction rows, uses Alembic internally.
+- ✅ Account edit: unchecking "Active" checkbox saves `is_active=false` to the DB.
+- ✅ POST/PATCH on accounts and transactions return `HX-Redirect` so the browser navigates to the list page.
 
 ---
 
@@ -106,7 +112,7 @@ Last updated: end of **Phase 3 (Transactions)** — Phase 4 (Dashboard v1) is ne
 1. **No build step for the frontend in v1.** Tailwind via Play CDN; HTMX/Alpine/Chart.js from CDN with `defer`. Production compiled CSS is a Phase 8 task (`scripts/build_css.sh` is the hook).
 2. **Single currency, configurable.** No FX conversion. `currency_symbol` can be overridden in `.env`.
 3. **Sync SQLAlchemy.** Async is unnecessary for this workload and complicates the schema-explorer story.
-4. **HTMX partials return HTML, not JSON.** JSON API endpoints (`/api/...`) are reserved for Chart.js data. Page-level interactions use HTMX form submissions returning `partials/*.html` fragments.
+4. **HTMX form-submit endpoints return `HX-Redirect`, not partials.** JSON API endpoints (`/api/...`) are reserved for Chart.js data. Create/edit forms live on dedicated full-page views (e.g. `/accounts/new`) where target elements like `#account-list` don't exist, so HTMX silently discards partial responses. POST/PATCH now return `Response(headers={"HX-Redirect": "/accounts"})` instead. DELETE endpoints still return 200 with `HX-Trigger` — the list page re-fetches via HTMX.
 5. **Transfers** = two `transactions` rows (one negative, one positive) sharing `transfer_pair_id`. No separate `transfers` table.
 6. **Local-first.** No auth in v1. `deps.get_current_user` is a planned no-op slot; the schema and codebase leave room for a `users` table + `user_id` FK on every model without major refactors.
 7. **Recurring rules** are materialized into real `transactions` rows (not virtual). `last_generated_date` is the idempotency key. Auto-materialize runs on FastAPI startup if `RECURRING_AUTO_MATERIALIZE=true`.
@@ -141,6 +147,9 @@ source backend/.venv/bin/activate
 
 # Run tests
 cd backend && pytest
+
+# Seed demo data (from project root)
+python scripts/seed.py
 
 # Create a new migration
 cd backend && alembic revision --autogenerate -m "add accounts table"
@@ -222,6 +231,30 @@ Verified:
 - `GET /transactions/new` renders form with account dropdown + transfer toggle.
 - Full CRUD round-trip via HTMX (create → edit → delete).
 - Transfer from A to B updates both balances correctly.
+
+#### Post-Phase 3 bugfixes
+
+These fixes were applied in a follow-up session and are stable in the codebase:
+
+- **Datepicker calendar icon invisible in dark mode** (`BUG`): The native calendar icon on
+  `<input type="date">` renders black-on-dark in Chromium browsers when toggled to dark mode.
+  `color-scheme: dark` and `::-webkit-calendar-picker-indicator { filter: invert(1) }`
+  were applied but did not resolve the issue (likely a Tailwind Play CDN cascade or browser
+  shadow-DOM limitation). **Marked as deferred — needs investigation in Phase 8 or when
+  Tailwind Play CDN is replaced with compiled CSS.**
+
+- **HTMX form redirect**: POST/PATCH on accounts and transactions returned partial HTML
+  targeted at `#account-list` / `#transaction-list`, but those elements don't exist on
+  dedicated form pages. Changed to `HX-Redirect`. Removed dead `hx-target`/`hx-swap`
+  from form templates. Tests updated to use JSON API for entity ID lookup.
+- **DELETE route restoration**: `@router.delete("/transactions/{id}")` was accidentally
+  deleted during the HTMX refactor. Restored.
+- **Filter 422 fix**: `account_id` param changed from `int | None` to `str | None`
+  with manual parsing to accept empty string submissions from the HTML filter form.
+- **Checkbox save fix**: Added hidden `<input type="hidden" name="is_active" value="false" />`
+  after the `is_active` checkbox so that unchecking sends `false` to the server.
+- **Seed script**: Upgraded from placeholder to real seeder (4 accounts, 11 txns, INR amounts,
+  Alembic-driven). Run via `python scripts/seed.py` from project root.
 
 ---
 

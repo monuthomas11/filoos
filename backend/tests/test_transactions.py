@@ -222,19 +222,17 @@ def test_transaction_edit_page(client: TestClient):
     # Seed
     client.post("/accounts", data={"name": "Acct", "type": "cash"},
                 headers={"HX-Request": "true"})
-    # Create a transaction via HTMX
-    r = client.post("/transactions", data={
+    # Create a transaction
+    client.post("/transactions", data={
         "type": "expense",
         "account_id": "1",
         "amount": "100",
         "description": "Edit Me",
         "date": "2026-06-01",
     }, headers={"HX-Request": "true"})
-    assert r.status_code == 200
-    import re
-    match = re.search(r'id="tx-row-(\d+)"', r.text)
-    assert match, "expected tx-row id in response"
-    tx_id = match.group(1)
+    # Find it via the JSON API.
+    txs = client.get("/api/transactions").json()
+    tx_id = txs[0]["id"]
 
     response = client.get(f"/transactions/{tx_id}/edit")
     assert response.status_code == 200
@@ -263,9 +261,7 @@ def test_create_expense_via_htmx(client: TestClient):
         "date": "2026-06-01",
     }, headers={"HX-Request": "true"})
     assert response.status_code == 200
-    assert "Lunch" in response.text
-    assert "tx-row-" in response.text
-    assert "-75.50" in response.text or "-75.5" in response.text
+    assert response.headers.get("HX-Redirect") == "/transactions"
 
 
 def test_create_income_via_htmx(client: TestClient):
@@ -279,8 +275,7 @@ def test_create_income_via_htmx(client: TestClient):
         "date": "2026-06-01",
     }, headers={"HX-Request": "true"})
     assert response.status_code == 200
-    assert "Salary" in response.text
-    assert "5000" in response.text
+    assert response.headers.get("HX-Redirect") == "/transactions"
 
 
 def test_create_transfer_via_htmx(client: TestClient):
@@ -297,37 +292,35 @@ def test_create_transfer_via_htmx(client: TestClient):
         "date": "2026-06-01",
     }, headers={"HX-Request": "true"})
     assert response.status_code == 200
-    assert "Move money" in response.text
+    assert response.headers.get("HX-Redirect") == "/transactions"
 
 
 def test_update_transaction_via_htmx(client: TestClient):
     client.post("/accounts", data={"name": "Acct", "type": "cash"},
                 headers={"HX-Request": "true"})
-    r = client.post("/transactions", data={
+    client.post("/transactions", data={
         "type": "expense", "account_id": "1", "amount": "50",
         "description": "Before", "date": "2026-06-01",
     }, headers={"HX-Request": "true"})
-    import re
-    match = re.search(r'id="tx-row-(\d+)"', r.text)
-    tx_id = match.group(1)
+    txs = client.get("/api/transactions").json()
+    tx_id = txs[0]["id"]
 
     response = client.patch(f"/transactions/{tx_id}", data={
         "description": "After",
     }, headers={"HX-Request": "true"})
     assert response.status_code == 200
-    assert "After" in response.text
+    assert response.headers.get("HX-Redirect") == "/transactions"
 
 
 def test_delete_transaction_via_htmx(client: TestClient):
     client.post("/accounts", data={"name": "Acct", "type": "cash"},
                 headers={"HX-Request": "true"})
-    r = client.post("/transactions", data={
+    client.post("/transactions", data={
         "type": "expense", "account_id": "1", "amount": "25",
         "description": "Delete Me", "date": "2026-06-01",
     }, headers={"HX-Request": "true"})
-    import re
-    match = re.search(r'id="tx-row-(\d+)"', r.text)
-    tx_id = match.group(1)
+    txs = client.get("/api/transactions").json()
+    tx_id = txs[0]["id"]
 
     response = client.delete(f"/transactions/{tx_id}",
                              headers={"HX-Request": "true"})
@@ -357,13 +350,13 @@ def test_list_transactions_json(client: TestClient):
 def test_get_transaction_json(client: TestClient):
     client.post("/accounts", data={"name": "Acct", "type": "bank"},
                 headers={"HX-Request": "true"})
-    r = client.post("/transactions", data={
+    client.post("/transactions", data={
         "type": "income", "account_id": "1", "amount": "999",
         "description": "Bonus", "date": "2026-06-01",
     }, headers={"HX-Request": "true"})
-    import re
-    match = re.search(r'id="tx-row-(\d+)"', r.text)
-    tx_id = match.group(1)
+    # Find the transaction via the JSON API.
+    txs = client.get("/api/transactions").json()
+    tx_id = txs[0]["id"]
 
     response = client.get(f"/api/transactions/{tx_id}")
     assert response.status_code == 200

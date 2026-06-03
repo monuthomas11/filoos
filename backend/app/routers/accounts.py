@@ -96,6 +96,8 @@ async def account_create(
         is_active=is_active,
     )
     account = create_account(db, data)
+    if _is_htmx(request):
+        return Response(status_code=200, headers={"HX-Redirect": "/accounts"})
     return _respond_with_card(request, account, db)
 
 
@@ -135,6 +137,8 @@ async def account_update(
     account = update_account(db, account_id, data)
     if account is None:
         return HTMLResponse("Account not found", status_code=404)
+    if _is_htmx(request):
+        return Response(status_code=200, headers={"HX-Redirect": "/accounts"})
     return _respond_with_card(request, account, db)
 
 

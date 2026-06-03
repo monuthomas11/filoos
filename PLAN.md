@@ -220,17 +220,22 @@ Indexes: `(date)`, `(account_id, date)`.
 | GET    | `/budgets`                    | `budgets/list.html`            |
 | GET    | `/recurring`                  | `recurring/list.html`          |
 
-### HTMX fragment routes (return partial HTML)
+### HTMX form-submit routes (redirect to list page)
 
-| Method | Path                          | Partial                            |
-|--------|-------------------------------|------------------------------------|
-| POST   | `/accounts`                   | `partials/account_card.html`       |
-| PATCH  | `/accounts/{id}`              | `partials/account_card.html`       |
-| DELETE | `/accounts/{id}`              | empty (swap with empty state)      |
-| POST   | `/transactions`               | `partials/transaction_row.html`    |
-| PATCH  | `/transactions/{id}`          | `partials/transaction_row.html`    |
-| DELETE | `/transactions/{id}`          | empty                              |
-| (same for categories, budgets, recurring)                                |
+| Method | Path                          | Response                            |
+|--------|-------------------------------|--------------------------------------|
+| POST   | `/accounts`                   | `HX-Redirect: /accounts`            |
+| PATCH  | `/accounts/{id}`              | `HX-Redirect: /accounts`            |
+| DELETE | `/accounts/{id}`              | empty (200 OK, triggers refresh)     |
+| POST   | `/transactions`               | `HX-Redirect: /transactions`        |
+| PATCH  | `/transactions/{id}`          | `HX-Redirect: /transactions`        |
+| DELETE | `/transactions/{id}`          | empty (200 OK, triggers refresh)     |
+| (same for categories, budgets, recurring in future phases)                |
+
+> POST/PATCH return `HX-Redirect` because the create/edit forms live on dedicated pages
+> where the target element (`#account-list`, `#transaction-list`) does not exist.
+> DELETE endpoints return 200 with `HX-Trigger: transaction-deleted` — the list page
+> listens for this event and re-fetches the list.
 
 ### JSON API (used by Chart.js on the dashboard)
 
@@ -304,7 +309,10 @@ projected_balance(t) = current_balance
 | 5 | **Categories & Budgets** | `Category`, `Budget` models + migrations, CRUD pages, budget progress bars on dashboard | Set ₹10,000 food budget; see progress on dashboard |
 | 6 | **Recurring rules** | `RecurringRule` model + migration, `services/recurring.py` materializer, auto-run on startup, "next 5 occurrences" preview | Mark salary as monthly; see it auto-appear on the 1st |
 | 7 | **Predictions** | `services/forecasting.py`, `/api/predictions/*`, balance projection chart w/ confidence band, 7/30-day expense forecast, runway warning | See projected balance 90 days out |
-| 8 | **Polish** | pytest suite, `scripts/seed.py` w/ realistic INR demo data, README polish, free-hosting notes (Render/Railway/Fly), error pages, accessibility pass | Test suite green; project shareable |
+| 8 | **Polish** | pytest suite, README polish, free-hosting notes (Render/Railway/Fly), error pages, accessibility pass | Test suite green; project shareable |
+
+> Note: `scripts/seed.py` was implemented ahead-of-schedule (post-Phase 3 bugfix session).
+> It creates 4 accounts + 11 transaction rows with realistic INR amounts using Alembic.
 
 ## 10. Local Dev Workflow
 
@@ -370,7 +378,7 @@ Shipped:
 - `app/templates/dashboard.html` - placeholder dashboard with 4 KPI cards, 2 chart placeholders, recent-transactions placeholder, and an 8-phase build-status panel.
 - Alembic initialized: `alembic.ini`, `alembic/env.py` (loads `Base.metadata` from `app.database`, `render_as_batch=True` for SQLite ALTER support), `alembic/script.py.mako`.
 - `scripts/dev.ps1` (Windows) and `scripts/dev.sh` (POSIX) - one-shot launchers that create venv, install deps, run migrations, and start uvicorn with `--reload`.
-- `scripts/build_css.sh` (placeholder for future compiled Tailwind), `scripts/seed.py` (placeholder for Phase 8).
+- `scripts/build_css.sh` (placeholder for future compiled Tailwind).
 - `tests/conftest.py` (in-memory SQLite + `TestClient`), `tests/test_smoke.py` (3 passing tests).
 - `PLAN.md` (this file) and `README.md`.
 
@@ -426,3 +434,39 @@ Verified:
 - `GET /healthz` returns `{"status":"ok","app":"FutureFunds"}`.
 - Full CRUD round-trip: create expense → see row → edit description → row updates → delete → row removed (via HTMX).
 - Create transfer from account A to B → both balances reflect correctly.
+
+#### Post-Phase 3 bugfixes (this session)
+
+**HTMX form redirect**: POST/PATCH on both accounts and transactions originally returned
+`partials/account_card.html` / `partials/transaction_row.html` targeted at `#account-list` /
+`#transaction-list`. But the form pages (`/accounts/new`, `/transactions/{id}/edit`, etc.)
+are dedicated full-page views — those target elements do not exist in those pages, so HTMX
+silently discarded the response ("nothing happens"). **Fix**: POST/PATCH now return
+`Response(headers={"HX-Redirect": "/accounts"})` (or `/transactions`). The `hx-target`
+and `hx-swap` attributes were removed from the form templates. Tests updated to use the
+JSON API to look up created entities instead of parsing response HTML.
+
+**DELETE route accidentally eaten**: During the HTMX redirect refactor of
+`transactions.py`, the `@router.delete("/transactions/{transaction_id}")` endpoint was
+accidentally included in the edit's `oldString` and deleted. Restored it to its original
+logic (200 + `HX-Trigger: transaction-deleted`).
+
+**Filter 422 on empty string**: The `/transactions` and `/api/transactions` routes
+declared `account_id: int | None = Query(None, alias="account")`. When the HTML form
+submitted `account=` (empty string), FastAPI/Pydantic v2 rejected it with 422 because
+`""` cannot be parsed as `int`. **Fix**: changed to `str | None` with manual
+`try: int(account_id)` parsing — empty strings become `None`, valid numbers pass through.
+
+**Account checkbox not saving**: The account edit form has an `is_active` checkbox.
+When unchecked, HTML sends **no value** for it; FastAPI used the default `Form(None)`,
+and the `if is_active is not None:` guard skipped the field entirely. **Fix**: added
+`<input type="hidden" name="is_active" value="false" />` after the checkbox. The hidden
+field always submits `"false"`; when checked, the checkbox value `"true"` arrives first
+in the form data, so `Form()` correctly receives `"true"`. Unchecked → only the hidden
+`"false"` is sent.
+
+**Seed script upgraded**: `scripts/seed.py` was rewritten from a placeholder to a real
+seeder that creates 4 accounts (Wallet, HDFC Bank, SBI Savings, Axis Credit Card) with
+₹ amounts and 11 transaction rows (salary, rent, transfer, groceries, bills, etc.).
+It runs `alembic upgrade head` programmatically via `_ensure_migrations()` rather than
+`Base.metadata.create_all()`, avoiding migration conflicts with `dev.ps1`.

@@ -19,7 +19,7 @@ router = APIRouter()
 @router.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     """Phase 3 dashboard: shows total balance, per-account cards, recent transactions."""
-    accounts = list_accounts(db)
+    accounts = list_accounts(db, active_only=True)
     balances: dict[int, Decimal] = {}
     for a in accounts:
         balances[a.id] = compute_balance(a, db)

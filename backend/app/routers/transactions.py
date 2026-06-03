@@ -58,13 +58,20 @@ def _render_list_items(request: Request, db: Session, **filters):
 @router.get("/transactions", response_class=HTMLResponse)
 async def transaction_list_page(
     request: Request,
-    account_id: int | None = Query(None, alias="account"),
+    account_id: str | None = Query(None, alias="account"),
     type_filter: str | None = Query(None, alias="type"),
     date_from: str | None = Query(None, alias="from"),
     date_to: str | None = Query(None, alias="to"),
     description: str | None = Query(None, alias="q"),
     db: Session = Depends(get_db),
 ):
+    parsed_account_id = None
+    if account_id:
+        try:
+            parsed_account_id = int(account_id)
+        except ValueError:
+            pass
+
     parsed_type = None
     if type_filter:
         try:
@@ -87,8 +94,8 @@ async def transaction_list_page(
             pass
 
     filters = {}
-    if account_id is not None:
-        filters["account_id"] = account_id
+    if parsed_account_id is not None:
+        filters["account_id"] = parsed_account_id
     if parsed_type is not None:
         filters["type_filter"] = parsed_type
     if parsed_date_from is not None:
@@ -115,7 +122,7 @@ async def transaction_list_page(
             "title": "Transactions",
             "transactions": txns,
             "accounts": accounts,
-            "filter_account_id": account_id,
+            "filter_account_id": parsed_account_id,
             "filter_type": type_filter,
             "filter_date_from": date_from or "",
             "filter_date_to": date_to or "",
@@ -235,11 +242,7 @@ async def transaction_create(
         )
 
     if _is_htmx(request):
-        return templates.TemplateResponse(
-            request,
-            "partials/transaction_row.html",
-            {"tx": tx},
-        )
+        return Response(status_code=200, headers={"HX-Redirect": "/transactions"})
     return TransactionRead.model_validate(tx)
 
 
@@ -290,11 +293,7 @@ async def transaction_update(
         return HTMLResponse("Transaction not found", status_code=404)
 
     if _is_htmx(request):
-        return templates.TemplateResponse(
-            request,
-            "partials/transaction_row.html",
-            {"tx": tx},
-        )
+        return Response(status_code=200, headers={"HX-Redirect": "/transactions"})
     return TransactionRead.model_validate(tx)
 
 
@@ -322,7 +321,7 @@ async def transaction_delete(
 
 @router.get("/api/transactions", response_model=list[TransactionRead])
 async def transaction_list_json(
-    account_id: int | None = Query(None, alias="account"),
+    account_id: str | None = Query(None, alias="account"),
     type_filter: str | None = Query(None, alias="type"),
     date_from: str | None = Query(None, alias="from"),
     date_to: str | None = Query(None, alias="to"),
@@ -330,6 +329,13 @@ async def transaction_list_json(
     offset: int = Query(0, alias="offset"),
     db: Session = Depends(get_db),
 ):
+    parsed_account_id = None
+    if account_id:
+        try:
+            parsed_account_id = int(account_id)
+        except ValueError:
+            pass
+
     parsed_type = None
     if type_filter:
         try:
@@ -352,8 +358,8 @@ async def transaction_list_json(
             pass
 
     filters: dict = {"limit": limit, "offset": offset}
-    if account_id is not None:
-        filters["account_id"] = account_id
+    if parsed_account_id is not None:
+        filters["account_id"] = parsed_account_id
     if parsed_type is not None:
         filters["type_filter"] = parsed_type
     if parsed_date_from is not None:
