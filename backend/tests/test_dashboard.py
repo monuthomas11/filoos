@@ -1,0 +1,232 @@
+"""Tests for dashboard API endpoints."""
+
+from __future__ import annotations
+
+import datetime
+from decimal import Decimal
+
+from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
+
+from app.crud.account import create_account
+from app.crud.transaction import create_transaction
+from app.models.account import AccountType
+from app.models.transaction import TransactionType
+from app.schemas.account import AccountCreate
+from app.services.analytics import (
+    balance_history,
+    category_breakdown,
+    daily_spending,
+    monthly_summary,
+)
+
+
+def _seed_account(db: Session, name: str = "Test",
+                  type_: AccountType = AccountType.BANK,
+                  balance: str = "0") -> None:
+    create_account(
+        db,
+        AccountCreate(name=name, type=type_, opening_balance=Decimal(balance)),
+    )
+
+
+def _seed_tx(db: Session, account_id: int, amount: str, type_: TransactionType,
+             description: str, days_ago: int = 0) -> None:
+    date = datetime.date.today() - datetime.timedelta(days=days_ago)
+    create_transaction(
+        db=db,
+        account_id=account_id,
+        amount=Decimal(amount),
+        type_=type_,
+        description=description,
+        date=date,
+    )
+
+
+# ------------------------------------------------------------------
+# Services
+# ------------------------------------------------------------------
+
+
+def test_monthly_summary_empty(db_session: Session):
+    result = monthly_summary(db_session)
+    assert result["income"] == "0"
+    assert result["expense"] == "0"
+    assert result["net"] == "0"
+    assert result["savings_rate"] is None
+
+
+def test_monthly_summary_with_data(db_session: Session):
+    _seed_account(db_session, "Acct", balance="1000")
+    _seed_tx(db_session, 1, "5000", TransactionType.INCOME, "Salary", days_ago=0)
+    _seed_tx(db_session, 1, "-2000", TransactionType.EXPENSE, "Rent", days_ago=0)
+    _seed_tx(db_session, 1, "-500", TransactionType.EXPENSE, "Groceries", days_ago=0)
+
+    result = monthly_summary(db_session)
+    assert result["income"] == "5000.00"
+    assert result["expense"] == "2500.00"
+    assert result["net"] == "2500.00"
+    assert result["savings_rate"] == 50.0
+
+
+def test_daily_spending(db_session: Session):
+    _seed_account(db_session, "Acct", balance="1000")
+    _seed_tx(db_session, 1, "-100", TransactionType.EXPENSE, "Coffee", days_ago=0)
+    _seed_tx(db_session, 1, "-200", TransactionType.EXPENSE, "Lunch", days_ago=0)
+    _seed_tx(db_session, 1, "-50", TransactionType.EXPENSE, "Snacks", days_ago=1)
+
+    series = daily_spending(db_session, days=7)
+    assert len(series) == 7
+    # Today should have 300 spending
+    today_str = datetime.date.today().isoformat()
+    today_entry = next(s for s in series if s["date"] == today_str)
+    assert today_entry["amount"] == "300.00"
+    yesterday_str = (datetime.date.today() - datetime.timedelta(days=1)).isoformat()
+    yesterday_entry = next(s for s in series if s["date"] == yesterday_str)
+    assert yesterday_entry["amount"] == "50.00"
+    # All other days should be zero
+    for s in series:
+        if s["date"] not in (today_str, yesterday_str):
+            assert s["amount"] == "0.00", f"{s['date']}: {s['amount']}"
+
+
+def test_category_breakdown(db_session: Session):
+    _seed_account(db_session, "Acct", balance="1000")
+    _seed_tx(db_session, 1, "5000", TransactionType.INCOME, "Salary", days_ago=0)
+    _seed_tx(db_session, 1, "-2000", TransactionType.EXPENSE, "Rent", days_ago=0)
+    _seed_tx(db_session, 1, "-500", TransactionType.EXPENSE, "Food", days_ago=0)
+
+    breakdown = category_breakdown(db_session)
+    assert len(breakdown) == 2  # income and expense (no transfers)
+    labels = {b["label"] for b in breakdown}
+    assert "Income" in labels
+    assert "Expense" in labels
+    income = next(b for b in breakdown if b["label"] == "Income")
+    expense = next(b for b in breakdown if b["label"] == "Expense")
+    assert income["amount"] == "5000.00"
+    assert expense["amount"] == "2500.00"
+
+
+def test_balance_history(db_session: Session):
+    _seed_account(db_session, "Acct", balance="1000")
+    _seed_tx(db_session, 1, "500", TransactionType.INCOME, "Deposit", days_ago=2)
+    _seed_tx(db_session, 1, "-200", TransactionType.EXPENSE, "Withdraw", days_ago=1)
+
+    history = balance_history(db_session, 1, days=5)
+    assert len(history) == 5
+    # Day 0 (5 days ago): opening 1000
+    # Day 2: +500 = 1500
+    # Day 4 (yesterday): -200 = 1300
+    # Today: no tx = 1300
+    day0 = next(s for s in history if s["date"] == (datetime.date.today() - datetime.timedelta(days=4)).isoformat())
+    assert day0["balance"] == "1000.00"
+    day_with_deposit = next(s for s in history if s["date"] == (datetime.date.today() - datetime.timedelta(days=2)).isoformat())
+    assert day_with_deposit["balance"] == "1500.00"
+
+
+def test_balance_history_nonexistent_account(db_session: Session):
+    history = balance_history(db_session, 999, days=7)
+    assert history == []
+
+
+# ------------------------------------------------------------------
+# HTTP endpoints
+# ------------------------------------------------------------------
+
+
+def test_dashboard_summary_json(client: TestClient):
+    response = client.get("/api/dashboard/summary")
+    assert response.status_code == 200
+    data = response.json()
+    assert "income" in data
+    assert "expense" in data
+    assert "net" in data
+    assert "savings_rate" in data
+
+
+def test_dashboard_summary_with_data(client: TestClient):
+    client.post("/accounts", data={"name": "Bank", "type": "bank"},
+                headers={"HX-Request": "true"})
+    client.post("/transactions", data={
+        "type": "income", "account_id": "1", "amount": "10000",
+        "description": "Salary", "date": datetime.date.today().isoformat(),
+    }, headers={"HX-Request": "true"})
+    client.post("/transactions", data={
+        "type": "expense", "account_id": "1", "amount": "3000",
+        "description": "Rent", "date": datetime.date.today().isoformat(),
+    }, headers={"HX-Request": "true"})
+
+    response = client.get("/api/dashboard/summary")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["income"] == "10000.00"
+    assert data["expense"] == "3000.00"
+    assert data["net"] == "7000.00"
+    assert data["savings_rate"] == 70.0
+
+
+def test_dashboard_summary_with_year_month(client: TestClient):
+    """Pass explicit year/month params."""
+    response = client.get("/api/dashboard/summary?year=2026&month=6")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["year"] == 2026
+    assert data["month"] == 6
+
+
+def test_dashboard_spending_json(client: TestClient):
+    response = client.get("/api/dashboard/spending?range=7")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["days"] == 7
+    assert len(data["data"]) == 7
+
+
+def test_dashboard_category_breakdown(client: TestClient):
+    response = client.get("/api/dashboard/category-breakdown")
+    assert response.status_code == 200
+    data = response.json()
+    assert "month" in data
+    assert "data" in data
+
+
+def test_dashboard_category_breakdown_with_month(client: TestClient):
+    response = client.get("/api/dashboard/category-breakdown?month=2026-06")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["month"] == "2026-06"
+
+
+def test_dashboard_category_breakdown_invalid_month(client: TestClient):
+    response = client.get("/api/dashboard/category-breakdown?month=abc")
+    assert response.status_code == 422
+
+    response = client.get("/api/dashboard/category-breakdown?month=2026-13")
+    assert response.status_code == 422
+
+
+def test_balance_history_json(client: TestClient):
+    client.post("/accounts", data={"name": "Bank", "type": "bank"},
+                headers={"HX-Request": "true"})
+    response = client.get("/api/accounts/1/balance-history?range=7")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["account_id"] == 1
+    assert data["days"] == 7
+    assert len(data["data"]) == 7
+
+
+def test_balance_history_not_found(client: TestClient):
+    response = client.get("/api/accounts/999/balance-history")
+    assert response.status_code == 404
+
+
+def test_dashboard_page_has_chart_containers(client: TestClient):
+    """The dashboard page should have canvas elements for charts."""
+    response = client.get("/")
+    assert response.status_code == 200
+    assert 'id="spending-chart"' in response.text
+    assert 'id="category-chart"' in response.text
+    assert 'id="kpi-income"' in response.text
+    assert 'id="kpi-expense"' in response.text
+    assert 'id="kpi-savings-rate"' in response.text

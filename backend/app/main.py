@@ -43,12 +43,14 @@ app.mount(
 # ---------------------------------------------------------------------------
 
 from app.routers.accounts import router as accounts_router  # noqa: E402
+from app.routers.dashboard import router as dashboard_router  # noqa: E402
 from app.routers.pages import router as pages_router  # noqa: E402
 from app.routers.transactions import router as transactions_router  # noqa: E402
 
 app.include_router(pages_router)
 app.include_router(accounts_router)
 app.include_router(transactions_router)
+app.include_router(dashboard_router)
 
 
 # ---------------------------------------------------------------------------

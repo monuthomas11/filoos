@@ -2,9 +2,7 @@
 
 > **Read this first if you're a new agent/session/model.** It captures *where the project is right now* and the minimum context needed to continue. For full design rationale see [`PLAN.md`](./PLAN.md). For setup & usage see [`README.md`](./README.md).
 
-Last updated: end of **Phase 3 (Transactions)** — Phase 4 (Dashboard v1) is next.
-Post-Phase 3 bugfixes applied in a separate session (HTMX form redirect, filter 422,
-checkbox save, seed script).
+Last updated: end of **Phase 4 (Dashboard v1)** — Phase 5 (Categories & Budgets) is next.
 
 ---
 
@@ -30,7 +28,7 @@ checkbox save, seed script).
 | 1 | Foundation | **done** | Scaffold, FastAPI app, base template, dark mode, Alembic wired, dev scripts, smoke tests 3/3 |
 | 2 | Accounts | **done** | Model, CRUD, HTMX forms, page list, dashboard cards, JSON API, 25 test suite |
 | 3 | Transactions | **done** | Model, CRUD, HTMX forms, filterable list, transfer flow, 29 tests |
-| 4 | Dashboard v1 | pending | Real charts & KPIs from live data |
+| 4 | Dashboard v1 | **done** | Real charts & KPIs from live data, 16 new tests |
 | 5 | Categories & Budgets | pending | Category CRUD, budget progress bars |
 | 6 | Recurring rules | pending | Auto-materialize on startup |
 | 7 | Predictions | pending | EMA + day-of-week seasonality + confidence bands |
@@ -52,7 +50,7 @@ checkbox save, seed script).
 ### Templates (`backend/app/templates/`)
 
 - `base.html` — Tailwind Play CDN with inline config (system font stack, `accent-600` = indigo-600, `positive-600` = emerald-600, `negative-600` = red-600, `darkMode: 'class'`). Loads HTMX 1.9, Alpine 3, Chart.js 4 (deferred). Sticky header with logo + phase-aware nav (Accounts/Transactions active, Budgets/Recurring disabled). Dark-mode toggle button (Alpine + `localStorage` key `ff-dark`). SVG favicon (indigo document icon). Slot `{% block content %}` over a max-w-7xl container. Footer with `/docs` link.
-- `dashboard.html` — extends base. Hero with "Dashboard" + Phase 1 status note. 4 KPI cards (Total balance computed, Income/Expense/Savings rate placeholders for Phase 4). Per-account cards with computed balances. Real recent-transactions list (last 10). Chart placeholders for Phase 4. 8-phase build-status list (Phases 1-3 green).
+- `dashboard.html` — extends base. Hero with "Dashboard" + Phase 1 status note. 4 KPI cards with real data (Total balance server-rendered; Income/Expense/Savings rate populated client-side from `/api/dashboard/summary`). Per-account cards with computed balances. Real recent-transactions list (last 10). Real Chart.js charts (daily spending bar, category doughnut) initialized via `DOMContentLoaded` listener. 8-phase build-status list (Phases 1-4 green).
 
 ### Static (`backend/app/static/`)
 
@@ -90,20 +88,15 @@ checkbox save, seed script).
 
 ---
 
-## 4. What was verified in this session
+## 4. What was verified (latest session — Phase 4)
 
-- ✅ `pip install -e ".[dev]"` succeeded on Python 3.14.4.
-- ✅ `alembic upgrade head` applies migrations (accounts + transactions tables).
-- ✅ `uvicorn app.main:app --reload` boots without error.
-- ✅ `GET /` → 200, body contains "FutureFunds", "Dashboard", real recent transactions.
-- ✅ `GET /transactions` → 200, filter form + empty state.
-- ✅ `GET /healthz` → 200, `{"status":"ok","app":"FutureFunds"}`.
-- ✅ `GET /static/css/app.css` → 200, `Content-Type: text/css; charset=utf-8`.
-- ✅ `pytest -q` → **54 passed, 0 failed** (3 smoke + 20 accounts + 2 helpers + 29 transactions).
-- ✅ `GET /transactions?account=&type=&from=2026-05-24&to=2026-06-03&q=` → 200 (no more 422 from empty int parameter).
-- ✅ `scripts/seed.py` creates 4 accounts + 11 transaction rows, uses Alembic internally.
-- ✅ Account edit: unchecking "Active" checkbox saves `is_active=false` to the DB.
-- ✅ POST/PATCH on accounts and transactions return `HX-Redirect` so the browser navigates to the list page.
+- ✅ `pytest -q` → **89 passed, 0 failed** (3 smoke + 24 accounts + 7 config + 39 transactions + 16 dashboard).
+- ✅ `GET /api/dashboard/summary` returns income/expense/net/savings_rate.
+- ✅ `GET /api/dashboard/spending?range=7` returns 7 daily entries with proper amounts.
+- ✅ `GET /api/dashboard/category-breakdown` returns breakdown by type.
+- ✅ `GET /api/accounts/1/balance-history?range=7` returns daily running balance.
+- ✅ `GET /` renders canvas elements (`id="spending-chart"`, `id="category-chart"`) and KPI placeholder IDs (`id="kpi-income"`, etc.).
+- ✅ `GET /docs` serves auto-generated OpenAPI docs including dashboard endpoints.
 
 ---
 
@@ -163,11 +156,40 @@ cd backend && ruff check .
 
 ---
 
-## 8. Next up: Phase 4 — Dashboard v1
+## 8. Next up: Phase 5 — Categories & Budgets
 
-Phase 4 builds `services/analytics.py`, `/api/dashboard/*` endpoints, real Chart.js charts (daily spending bar, category donut), and monthly income/expense/savings-rate KPIs on the dashboard. See `PLAN.md` §14 for the concrete checklist.
+Phase 5 builds the `Category` and `Budget` models + migrations, CRUD pages, and budget progress bars on the dashboard. See `PLAN.md` §14 for the concrete checklist.
 
 ## 9. Completed phases
+
+### Phase 4 — Dashboard v1
+
+Shipped:
+- `app/services/analytics.py` — analytics service with `monthly_summary`, `daily_spending`, `category_breakdown`, and `balance_history` functions. All return structured data for the dashboard JSON API.
+- `app/routers/dashboard.py` — 4 JSON API endpoints:
+  - `GET /api/dashboard/summary?year=&month=` — monthly income, expense, net, savings rate
+  - `GET /api/dashboard/spending?range=30` — daily expense bar chart data
+  - `GET /api/dashboard/category-breakdown?month=YYYY-MM` — breakdown by type (placeholder until categories exist in Phase 5)
+  - `GET /api/accounts/{id}/balance-history?range=90` — daily running balance per account
+- `app/main.py` — dashboard router mounted
+- `app/templates/dashboard.html` — real KPIs (income, expense, savings rate) loaded via JS from `/api/dashboard/summary`; daily spending bar chart (Chart.js) from `/api/dashboard/spending`; category breakdown doughnut chart (Chart.js) from `/api/dashboard/category-breakdown`; Phase 4 build status now green.
+- `app/templates/base.html` — added `{% block scripts %}{% endblock %}` slot; footer updated to "Phase 4".
+- `tests/test_dashboard.py` — 16 tests covering all analytics functions and HTTP endpoints.
+
+Key decisions during implementation:
+- Chart.js is loaded with `defer` in `base.html`; dashboard charts are initialized in a `DOMContentLoaded` listener so all deferred scripts (Alpine, Chart.js) are guaranteed available.
+- KPIs are updated client-side via `fetch()` to the JSON API, keeping the server-rendered dashboard static and fast.
+- `category_breakdown` groups by transaction type (income/expense/transfer) as a fallback until the `categories` table exists in Phase 5.
+- All monetary amounts are returned as strings from the API (to preserve Decimal precision) and parsed client-side for chart rendering.
+
+Verified:
+- `pytest -q` → **89 passed** (3 smoke + 24 accounts + 7 config + 39 transactions + 16 dashboard).
+- `GET /api/dashboard/summary` returns correct monthly totals.
+- `GET /api/dashboard/spending?range=7` returns 7 daily entries with proper amounts.
+- `GET /api/dashboard/category-breakdown` returns breakdown by type.
+- `GET /api/accounts/1/balance-history?range=7` returns daily running balance.
+- Dashboard page renders with `id="spending-chart"`, `id="category-chart"`, `id="kpi-income"`, etc.
+- KPI cards show real data populated by client-side fetch.
 
 ### Phase 2 — Accounts
 

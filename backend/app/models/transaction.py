@@ -14,7 +14,7 @@ from app.database import Base
 from app.models import TimestampMixin
 
 
-class TransactionType(str, enum.Enum):
+class TransactionType(enum.StrEnum):
     """Supported transaction types."""
 
     EXPENSE = "expense"

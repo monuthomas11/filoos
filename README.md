@@ -13,11 +13,11 @@ See [`PLAN.md`](./PLAN.md) for the full design, architecture, and phased roadmap
 ## Build status
 
 | Phase | Status | Notes |
-|---|---|---|
+|---|---|---|---|
 | 1. Foundation | done | Scaffold, FastAPI app, base template, dark mode, Alembic wired, dev scripts, smoke tests (3/3 passing) |
 | 2. Accounts | done | Model, CRUD, HTMX forms, page list, dashboard cards, JSON API, 20 tests |
 | 3. Transactions | done | Model, CRUD, HTMX forms, filterable list, transfer flow, 29 tests |
-| 4. Dashboard v1 | pending | Real charts, KPIs from live data |
+| 4. Dashboard v1 | done | Analytics service, JSON API, Chart.js charts (daily-spend bar, category donut), monthly KPIs, 16 tests |
 | 5. Categories & Budgets | pending | Category CRUD, budget progress |
 | 6. Recurring rules | pending | Auto-materialize on startup |
 | 7. Predictions | pending | EMA + seasonality + confidence bands |
@@ -79,12 +79,16 @@ pytest
 
 | Path | Purpose |
 |---|---|---|
-| `GET /` | Dashboard (real balances, recent transactions) |
+| `GET /` | Dashboard (real balances, recent transactions, Chart.js charts) |
 | `GET /accounts` | Account list (CRUD) |
 | `GET /transactions` | Transaction list (filterable) |
 | `GET /healthz` | Liveness probe (`{"status":"ok","app":"FutureFunds"}`) |
 | `GET /docs` | Auto-generated OpenAPI docs for the JSON API |
 | `GET /static/*` | CSS / JS / assets |
+| `GET /api/dashboard/summary` | Monthly income/expense/savings-rate KPIs |
+| `GET /api/dashboard/spending` | Daily expense series for Chart.js |
+| `GET /api/dashboard/category-breakdown` | Breakdown by type (categories in Phase 5) |
+| `GET /api/accounts/{id}/balance-history` | Daily running balance per account |
 
 ## Project layout
 
@@ -119,7 +123,7 @@ FutureFunds/
 - **No build step.** Tailwind CSS is loaded via the official Play CDN for v1; a compiled stylesheet is planned for production (`scripts/build_css.sh` is a placeholder for the standalone Tailwind CLI).
 - **HTMX** powers form submissions and partial updates.
 - **Alpine.js** handles the dark-mode toggle and small UI state.
-- **Chart.js** is loaded but unused in Phase 1; the dashboard charts arrive in Phase 4.
+- **Chart.js** powers the dashboard charts (daily spending bar, category breakdown doughnut) with data fetched from the JSON API.
 - Dark mode persists per browser via `localStorage`.
 
 ## Development scripts

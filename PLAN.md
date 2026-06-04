@@ -305,7 +305,7 @@ projected_balance(t) = current_balance
 | 1 | **Foundation** | Scaffold, FastAPI app, `config.py` with `DEFAULT_CURRENCY="INR"`, base template (Tailwind/HTMX/Alpine/Chart.js, dark-mode toggle), Alembic initialized, `.env.example`, `.gitignore`, `PLAN.md`, README, `dev.ps1`/`dev.sh` | `uvicorn` serves styled dashboard at <http://127.0.0.1:8000> |
 | 2 | **Accounts** | `Account` model + migration, CRUD pages, HTMX form partials, validation, color/icon per account | Create cash + bank + credit card; balances on placeholder dashboard |
 | 3 | **Transactions** | **done** | Ledger, transfers, filterable list, 29 tests |
-| 4 | **Dashboard v1** | `services/analytics.py`, `/api/dashboard/*`, dashboard.html with total balance, per-account cards w/ sparkline, daily-spend bar, category donut, recent txns | All charts render from real data |
+| 4 | **Dashboard v1** | **done** | `services/analytics.py`, `/api/dashboard/*`, real Chart.js charts (daily-spend bar, category donut), monthly KPI cards, 16 tests |
 | 5 | **Categories & Budgets** | `Category`, `Budget` models + migrations, CRUD pages, budget progress bars on dashboard | Set ₹10,000 food budget; see progress on dashboard |
 | 6 | **Recurring rules** | `RecurringRule` model + migration, `services/recurring.py` materializer, auto-run on startup, "next 5 occurrences" preview | Mark salary as monthly; see it auto-appear on the 1st |
 | 7 | **Predictions** | `services/forecasting.py`, `/api/predictions/*`, balance projection chart w/ confidence band, 7/30-day expense forecast, runway warning | See projected balance 90 days out |
@@ -313,6 +313,8 @@ projected_balance(t) = current_balance
 
 > Note: `scripts/seed.py` was implemented ahead-of-schedule (post-Phase 3 bugfix session).
 > It creates 4 accounts + 11 transaction rows with realistic INR amounts using Alembic.
+
+> Note: Dashboard chart colours use the design tokens from §3 (`accent-600` = `#4f46e5` for bars, `positive-600` = `#16a34a` / `negative-600` = `#dc2626` for category labels). Colours are hard-coded in the `dashboard.html` script block until a shared palette constant is extracted in Phase 8.
 
 ## 10. Local Dev Workflow
 
@@ -405,6 +407,32 @@ Shipped:
 - `pyproject.toml` — added `python-multipart`.
 
 Verified: 25 tests passing, all pages returning 200, full CRUD round-trip via HTMX.
+
+### Phase 4 — Dashboard v1 (complete)
+
+Shipped:
+- `app/services/analytics.py` — analytics service with `monthly_summary`, `daily_spending`, `category_breakdown`, and `balance_history` functions. All return structured dicts/lists for the dashboard JSON API.
+- `app/routers/dashboard.py` — 4 JSON API endpoints:
+  - `GET /api/dashboard/summary?year=&month=` — monthly income, expense, net, savings rate
+  - `GET /api/dashboard/spending?range=30` — daily expense bar chart data
+  - `GET /api/dashboard/category-breakdown?month=YYYY-MM` — breakdown by type (placeholder until categories exist in Phase 5)
+  - `GET /api/accounts/{id}/balance-history?range=90` — daily running balance per account
+- `app/main.py` — dashboard router mounted
+- `app/templates/dashboard.html` — placeholder KPI values replaced with `id`-annotated elements updated client-side via `fetch()`; two `<canvas>` elements for Chart.js (daily spending bar chart, category doughnut chart); build status Phase 4 now green; `{% block scripts %}{% endblock %}` appended to the page.
+- `app/templates/base.html` — added `{% block scripts %}{% endblock %}` slot at the end of `<body>`; footer updated from "Phase 3" to "Phase 4".
+- `tests/test_dashboard.py` — 16 tests covering all analytics functions and HTTP endpoints.
+
+Key decisions during implementation:
+- Charts are initialized in a `DOMContentLoaded` listener so all deferred scripts (Alpine.js, Chart.js) are guaranteed available before `new Chart(...)` is called.
+- All monetary amounts are returned as strings from the API (to preserve SQLite `Numeric` precision) and `parseFloat()`-ed client-side.
+- `category_breakdown` groups by transaction type as a fallback; when the `categories` table is added in Phase 5, it should be updated to group by `Transaction.category_id` with proper labels.
+
+Verified:
+- `pytest -q` → **89 passed** (3 smoke + 24 accounts + 7 config + 39 transactions + 16 dashboard).
+- `GET /api/dashboard/summary` returns correct monthly totals.
+- `GET /api/dashboard/spending?range=7` returns 7 daily entries with proper amounts.
+- Dashboard page renders canvas elements with `id="spending-chart"` and `id="category-chart"`.
+- KPI cards show real data after client-side fetch completes.
 
 ### Phase 3 — Transactions (complete)
 

@@ -5,8 +5,6 @@ from __future__ import annotations
 import os
 from unittest.mock import patch
 
-import pytest
-
 
 def test_settings_load_with_defaults():
     """Settings should load with sensible defaults."""

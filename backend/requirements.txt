@@ -12,6 +12,7 @@ pandas>=2.2.0
 numpy>=1.26.0
 statsmodels>=0.14.0
 python-dateutil>=2.9.0
+python-multipart>=0.0.9
 
 # Dev
 pytest>=8.0.0

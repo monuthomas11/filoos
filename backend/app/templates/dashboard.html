@@ -20,18 +20,15 @@
     </div>
     <div class="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
       <p class="text-xs uppercase tracking-wide text-neutral-500">This month income</p>
-      <p class="mt-2 text-2xl font-semibold text-neutral-400">—</p>
-      <p class="mt-1 text-xs text-neutral-400">Phase 4</p>
+      <p id="kpi-income" class="mt-2 text-2xl font-semibold text-positive-600">—</p>
     </div>
     <div class="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
       <p class="text-xs uppercase tracking-wide text-neutral-500">This month expense</p>
-      <p class="mt-2 text-2xl font-semibold text-neutral-400">—</p>
-      <p class="mt-1 text-xs text-neutral-400">Phase 4</p>
+      <p id="kpi-expense" class="mt-2 text-2xl font-semibold text-negative-600">—</p>
     </div>
     <div class="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
       <p class="text-xs uppercase tracking-wide text-neutral-500">Savings rate</p>
-      <p class="mt-2 text-2xl font-semibold text-neutral-400">—</p>
-      <p class="mt-1 text-xs text-neutral-400">Phase 4</p>
+      <p id="kpi-savings-rate" class="mt-2 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">—</p>
     </div>
   </div>
 
@@ -71,21 +68,21 @@
   </div>
   {% endif %}
 
-  <!-- Placeholder chart area -->
+  <!-- Chart row -->
   <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
     <div class="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900 lg:col-span-2">
       <div class="flex items-baseline justify-between">
         <h2 class="text-sm font-semibold">Daily spending</h2>
-        <span class="text-xs text-neutral-400">Last 30 days · Phase 4</span>
+        <span class="text-xs text-neutral-400">Last 30 days</span>
       </div>
-      <div class="mt-4 flex h-64 items-center justify-center rounded-md border border-dashed border-neutral-200 text-sm text-neutral-400 dark:border-neutral-800">
-        Chart placeholder
+      <div class="mt-4" style="position: relative; height: 260px;">
+        <canvas id="spending-chart"></canvas>
       </div>
     </div>
     <div class="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
       <h2 class="text-sm font-semibold">Category breakdown</h2>
-      <div class="mt-4 flex h-64 items-center justify-center rounded-md border border-dashed border-neutral-200 text-sm text-neutral-400 dark:border-neutral-800">
-        Donut placeholder
+      <div class="mt-4" style="position: relative; height: 260px;">
+        <canvas id="category-chart"></canvas>
       </div>
     </div>
   </div>
@@ -143,7 +140,7 @@
       <li class="flex items-center gap-2"><span class="h-2 w-2 rounded-full bg-positive-500"></span> Phase 1 · Foundation</li>
       <li class="flex items-center gap-2"><span class="h-2 w-2 rounded-full bg-positive-500"></span> Phase 2 · Accounts</li>
       <li class="flex items-center gap-2"><span class="h-2 w-2 rounded-full bg-positive-500"></span> Phase 3 · Transactions</li>
-      <li class="flex items-center gap-2 text-neutral-400"><span class="h-2 w-2 rounded-full bg-neutral-300 dark:bg-neutral-700"></span> Phase 4 · Dashboard v1</li>
+      <li class="flex items-center gap-2"><span class="h-2 w-2 rounded-full bg-positive-500"></span> Phase 4 · Dashboard v1</li>
       <li class="flex items-center gap-2 text-neutral-400"><span class="h-2 w-2 rounded-full bg-neutral-300 dark:bg-neutral-700"></span> Phase 5 · Categories &amp; Budgets</li>
       <li class="flex items-center gap-2 text-neutral-400"><span class="h-2 w-2 rounded-full bg-neutral-300 dark:bg-neutral-700"></span> Phase 6 · Recurring rules</li>
       <li class="flex items-center gap-2 text-neutral-400"><span class="h-2 w-2 rounded-full bg-neutral-300 dark:bg-neutral-700"></span> Phase 7 · Predictions</li>
@@ -151,4 +148,112 @@
     </ul>
   </div>
 </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var symbol = '{{ currency_symbol }}';
+
+  // --- KPI: monthly summary ---
+  fetch('/api/dashboard/summary')
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      document.getElementById('kpi-income').textContent = symbol + data.income;
+      document.getElementById('kpi-expense').textContent = symbol + data.expense;
+      document.getElementById('kpi-savings-rate').textContent =
+        data.savings_rate !== null ? data.savings_rate + '%' : '—';
+    })
+    .catch(function () {
+      // API unavailable — leave placeholders as-is
+    });
+
+  // --- Daily spending bar chart ---
+  fetch('/api/dashboard/spending?range=30')
+    .then(function (r) { return r.json(); })
+    .then(function (res) {
+      var data = res.data;
+      var ctx = document.getElementById('spending-chart');
+      if (!ctx || !data.length) return;
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: data.map(function (d) { return d.date.slice(5); }),
+          datasets: [{
+            label: 'Spending',
+            data: data.map(function (d) { return parseFloat(d.amount); }),
+            backgroundColor: '#4f46e5',
+            borderRadius: 4,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function (c) { return symbol + c.parsed.y.toFixed(2); },
+              },
+            },
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: { maxTicksLimit: 15, font: { size: 11 } },
+            },
+            y: {
+              beginAtZero: true,
+              grid: { color: 'rgba(0,0,0,0.06)' },
+              ticks: {
+                font: { size: 11 },
+                callback: function (v) { return symbol + v; },
+              },
+            },
+          },
+        },
+      });
+    })
+    .catch(function () { /* swallow */ });
+
+  // --- Category breakdown doughnut chart ---
+  fetch('/api/dashboard/category-breakdown')
+    .then(function (r) { return r.json(); })
+    .then(function (res) {
+      var data = res.data;
+      var ctx = document.getElementById('category-chart');
+      if (!ctx || !data.length) return;
+      var palette = ['#4f46e5', '#16a34a', '#dc2626', '#d97706', '#7c3aed', '#0891b2'];
+      new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: data.map(function (d) { return d.label; }),
+          datasets: [{
+            data: data.map(function (d) { return parseFloat(d.amount); }),
+            backgroundColor: data.map(function (_, i) { return palette[i % palette.length]; }),
+            borderWidth: 0,
+          }],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom',
+              labels: { font: { size: 11 }, boxWidth: 12, padding: 12 },
+            },
+            tooltip: {
+              callbacks: {
+                label: function (c) {
+                  return c.label + ': ' + symbol + c.parsed.toFixed(2);
+                },
+              },
+            },
+          },
+        },
+      });
+    })
+    .catch(function () { /* swallow */ });
+});
+</script>
 {% endblock %}

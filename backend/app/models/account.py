@@ -13,7 +13,7 @@ from app.database import Base
 from app.models import TimestampMixin
 
 
-class AccountType(str, enum.Enum):
+class AccountType(enum.StrEnum):
     """Supported account types."""
 
     CASH = "cash"
