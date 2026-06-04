@@ -89,12 +89,35 @@ def test_update_nonexistent_account(db_session: Session):
 
 def test_delete_account(db_session: Session):
     account = create_account(db_session, AccountCreate(name="Delete Me", type=AccountType.CASH))
-    assert delete_account(db_session, account.id) is True
+    ok, err = delete_account(db_session, account.id)
+    assert ok is True
+    assert err is None
     assert get_account(db_session, account.id) is None
 
 
 def test_delete_nonexistent_account(db_session: Session):
-    assert delete_account(db_session, 999) is False
+    ok, err = delete_account(db_session, 999)
+    assert ok is False
+    assert err == "Account not found"
+
+
+def test_delete_account_with_transactions_fails(db_session: Session):
+    """Cannot delete an account that has transactions."""
+    import datetime
+    from decimal import Decimal
+
+    from app.crud.transaction import create_transaction
+    from app.models.transaction import TransactionType
+
+    account = create_account(db_session, AccountCreate(name="Has Txns", type=AccountType.BANK))
+    create_transaction(
+        db_session, account.id, Decimal("-100"),
+        TransactionType.EXPENSE, "Test", datetime.date.today(),
+    )
+    ok, err = delete_account(db_session, account.id)
+    assert ok is False
+    assert err == "Cannot delete account with existing transactions"
+    assert get_account(db_session, account.id) is not None
 
 
 def test_compute_balance_defaults_to_opening(db_session: Session):
@@ -187,6 +210,26 @@ def test_delete_account_via_htmx(client: TestClient):
     )
     assert response.status_code == 200
     assert response.headers.get("HX-Trigger") == "account-deleted"
+
+
+def test_delete_account_with_transactions_via_htmx(client: TestClient):
+    """Deleting an account with transactions via HTMX should return 409."""
+    client.post("/accounts", data={"name": "Has Txns", "type": "bank"},
+                headers={"HX-Request": "true"})
+    client.post("/transactions", data={
+        "type": "expense", "account_id": "1", "amount": "100",
+        "description": "Test", "date": "2026-06-01",
+    }, headers={"HX-Request": "true"})
+
+    accounts = client.get("/api/accounts").json()
+    account_id = accounts[0]["id"]
+
+    response = client.delete(
+        f"/accounts/{account_id}",
+        headers={"HX-Request": "true"},
+    )
+    assert response.status_code == 409
+    assert "Cannot delete account with existing transactions" in response.text
 
 
 # ------------------------------------------------------------------

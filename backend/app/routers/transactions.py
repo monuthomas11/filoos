@@ -16,9 +16,11 @@ from app.crud.transaction import (
     create_transaction,
     create_transfer,
     delete_transaction,
+    delete_transfer_pair,
     get_transaction,
     list_transactions,
     update_transaction,
+    update_transfer_pair,
 )
 from app.deps import get_db
 from app.models.transaction import TransactionType
@@ -43,10 +45,17 @@ def _get_amount_sign(type_: TransactionType) -> int:
 
 def _render_list_items(request: Request, db: Session, **filters):
     txns = list_transactions(db, **filters)
+    # Build a map of transfer_pair_id -> paired account name for transfer display
+    paired_accounts: dict[int, str] = {}
+    for tx in txns:
+        if tx.type == TransactionType.TRANSFER and tx.transfer_pair_id is not None:
+            pair_tx = get_transaction(db, tx.transfer_pair_id)
+            if pair_tx is not None and pair_tx.account is not None:
+                paired_accounts[tx.id] = pair_tx.account.name
     return templates.TemplateResponse(
         request,
         "partials/transaction_list_items.html",
-        {"transactions": txns},
+        {"transactions": txns, "paired_accounts": paired_accounts},
     )
 
 
@@ -108,11 +117,19 @@ async def transaction_list_page(
     txns = list_transactions(db, **filters)
     accounts = list_accounts(db)
 
+    # Build a map of transfer_pair_id -> paired account name for transfer display
+    paired_accounts: dict[int, str] = {}
+    for tx in txns:
+        if tx.type == TransactionType.TRANSFER and tx.transfer_pair_id is not None:
+            pair_tx = get_transaction(db, tx.transfer_pair_id)
+            if pair_tx is not None and pair_tx.account is not None:
+                paired_accounts[tx.id] = pair_tx.account.name
+
     if _is_htmx(request):
         return templates.TemplateResponse(
             request,
             "partials/transaction_list_items.html",
-            {"transactions": txns},
+            {"transactions": txns, "paired_accounts": paired_accounts},
         )
 
     return templates.TemplateResponse(
@@ -122,6 +139,7 @@ async def transaction_list_page(
             "title": "Transactions",
             "transactions": txns,
             "accounts": accounts,
+            "paired_accounts": paired_accounts,
             "filter_account_id": parsed_account_id,
             "filter_type": type_filter,
             "filter_date_from": date_from or "",
@@ -159,7 +177,22 @@ async def transaction_edit_page(
     tx = get_transaction(db, transaction_id)
     if tx is None:
         return HTMLResponse("Transaction not found", status_code=404)
+
     accounts = list_accounts(db)
+
+    # For transfers, find the paired transaction to get from/to account IDs
+    from_account_id = None
+    to_account_id = None
+    if tx.type == TransactionType.TRANSFER and tx.transfer_pair_id is not None:
+        pair_tx = get_transaction(db, tx.transfer_pair_id)
+        if pair_tx is not None:
+            if tx.amount < 0:
+                from_account_id = tx.account_id
+                to_account_id = pair_tx.account_id
+            else:
+                from_account_id = pair_tx.account_id
+                to_account_id = tx.account_id
+
     return templates.TemplateResponse(
         request,
         "transactions/form.html",
@@ -169,6 +202,8 @@ async def transaction_edit_page(
             "transaction": tx,
             "accounts": accounts,
             "today": datetime.date.today().isoformat(),
+            "from_account_id": from_account_id,
+            "to_account_id": to_account_id,
         },
     )
 
@@ -256,8 +291,55 @@ async def transaction_update(
     date: str | None = Form(None),
     notes: str | None = Form(None),
     account_id: int | None = Form(None),
+    from_account_id: int | None = Form(None),
+    to_account_id: int | None = Form(None),
     db: Session = Depends(get_db),
 ):
+    existing = get_transaction(db, transaction_id)
+    if existing is None:
+        return HTMLResponse("Transaction not found", status_code=404)
+
+    # Handle transfer edits — update both legs atomically
+    if existing.type == TransactionType.TRANSFER:
+        # Parse date if provided
+        parsed_date = None
+        if date is not None:
+            try:
+                parsed_date = datetime.date.fromisoformat(date)
+            except ValueError:
+                raise HTTPException(status_code=422, detail="Invalid date format") from None
+
+        # Validate amount if provided
+        if amount is not None and amount <= 0:
+            raise HTTPException(status_code=422, detail="Amount must be positive")
+
+        # Validate accounts are different if both provided
+        if from_account_id is not None and to_account_id is not None:
+            if from_account_id == to_account_id:
+                raise HTTPException(
+                    status_code=422,
+                    detail="From and to accounts must be different",
+                )
+
+        result = update_transfer_pair(
+            db=db,
+            transaction_id=transaction_id,
+            amount=amount,
+            description=description,
+            date=parsed_date,
+            notes=notes,
+            from_account_id=from_account_id,
+            to_account_id=to_account_id,
+        )
+        if result is None:
+            return HTMLResponse("Transfer not found", status_code=404)
+
+        out_tx, in_tx = result
+        if _is_htmx(request):
+            return Response(status_code=200, headers={"HX-Redirect": "/transactions"})
+        return TransactionRead.model_validate(out_tx)
+
+    # Handle regular transaction edits
     patch: dict[str, object] = {}
 
     if type is not None:
@@ -270,9 +352,6 @@ async def transaction_update(
             raise HTTPException(status_code=422, detail="Amount must be positive")
         tx_type = patch.get("type")
         if tx_type is None:
-            existing = get_transaction(db, transaction_id)
-            if existing is None:
-                return HTMLResponse("Transaction not found", status_code=404)
             tx_type = existing.type
         sign = _get_amount_sign(tx_type)
         patch["amount"] = amount * sign
@@ -303,9 +382,19 @@ async def transaction_delete(
     transaction_id: int,
     db: Session = Depends(get_db),
 ):
-    ok = delete_transaction(db, transaction_id)
+    tx = get_transaction(db, transaction_id)
+    if tx is None:
+        return HTMLResponse("Transaction not found", status_code=404)
+
+    # For transfers, delete both legs
+    if tx.type == TransactionType.TRANSFER:
+        ok = delete_transfer_pair(db, transaction_id)
+    else:
+        ok = delete_transaction(db, transaction_id)
+
     if not ok:
         return HTMLResponse("Transaction not found", status_code=404)
+
     if _is_htmx(request):
         return Response(
             status_code=200,

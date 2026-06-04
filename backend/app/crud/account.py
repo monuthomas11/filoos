@@ -46,13 +46,25 @@ def update_account(
     return account
 
 
-def delete_account(db: Session, account_id: int) -> bool:
+def has_transactions(db: Session, account_id: int) -> bool:
+    """Return True if the account has any transactions."""
+    from app.crud.transaction import count_transactions_for_account
+    return count_transactions_for_account(db, account_id) > 0
+
+
+def delete_account(db: Session, account_id: int) -> tuple[bool, str | None]:
+    """Delete an account. Returns (success, error_message).
+
+    Blocks deletion if the account has transactions.
+    """
     account = get_account(db, account_id)
     if account is None:
-        return False
+        return False, "Account not found"
+    if has_transactions(db, account_id):
+        return False, "Cannot delete account with existing transactions"
     db.delete(account)
     db.commit()
-    return True
+    return True, None
 
 
 def compute_balance(account: Account, db: Session) -> Decimal:

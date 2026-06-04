@@ -148,9 +148,20 @@ async def account_delete(
     account_id: int,
     db: Session = Depends(get_db),
 ):
-    ok = delete_account(db, account_id)
+    ok, error_msg = delete_account(db, account_id)
     if not ok:
-        return HTMLResponse("Account not found", status_code=404)
+        if error_msg == "Account not found":
+            return HTMLResponse("Account not found", status_code=404)
+        # Has transactions — block deletion
+        if _is_htmx(request):
+            return HTMLResponse(
+                "Cannot delete account with existing transactions. Remove all transactions first.",
+                status_code=409,
+            )
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot delete account with existing transactions",
+        )
     if _is_htmx(request):
         return Response(status_code=200, headers={"HX-Trigger": "account-deleted"})
     return RedirectResponse(url="/accounts", status_code=303)

@@ -6,7 +6,7 @@ from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import get_settings
@@ -28,6 +28,18 @@ engine = create_engine(
     future=True,
     echo=False,
 )
+
+
+# ── Enforce foreign keys on every SQLite connection ────────────────────────
+if _settings.database_url.startswith("sqlite"):
+
+    @event.listens_for(engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection, connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys = ON")
+        cursor.close()
+
+# ─────────────────────────────────────────────────────────────────────────────
 
 SessionLocal = sessionmaker(
     bind=engine,

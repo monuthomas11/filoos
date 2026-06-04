@@ -14,10 +14,12 @@ from app.crud.transaction import (
     create_transaction,
     create_transfer,
     delete_transaction,
+    delete_transfer_pair,
     get_recent_transactions,
     get_transaction,
     list_transactions,
     update_transaction,
+    update_transfer_pair,
 )
 from app.models.account import Account, AccountType
 from app.models.transaction import TransactionType
@@ -432,3 +434,255 @@ def test_transfer_same_account_fails(client: TestClient):
         "date": "2026-06-01",
     }, headers={"HX-Request": "true"})
     assert response.status_code == 422
+
+
+# ------------------------------------------------------------------
+# P1 — Transfer pair safety
+# ------------------------------------------------------------------
+
+
+def test_delete_transfer_both_legs(db_session: Session):
+    """Deleting a transfer should delete both legs."""
+    from_acct = _seed_account(db_session, "Source", balance="5000")
+    to_acct = _seed_account(db_session, "Dest", balance="1000")
+
+    out_tx, in_tx = create_transfer(
+        db=db_session,
+        from_account_id=from_acct.id,
+        to_account_id=to_acct.id,
+        amount=Decimal("1000"),
+        description="Transfer",
+        date=datetime.date(2026, 6, 1),
+    )
+
+    ok = delete_transfer_pair(db_session, out_tx.id)
+    assert ok is True
+    assert get_transaction(db_session, out_tx.id) is None
+    assert get_transaction(db_session, in_tx.id) is None
+
+
+def test_delete_transfer_from_incoming_leg(db_session: Session):
+    """Deleting the incoming leg should also delete the outgoing leg."""
+    from_acct = _seed_account(db_session, "Source", balance="5000")
+    to_acct = _seed_account(db_session, "Dest", balance="1000")
+
+    out_tx, in_tx = create_transfer(
+        db=db_session,
+        from_account_id=from_acct.id,
+        to_account_id=to_acct.id,
+        amount=Decimal("1000"),
+        description="Transfer",
+        date=datetime.date(2026, 6, 1),
+    )
+
+    ok = delete_transfer_pair(db_session, in_tx.id)
+    assert ok is True
+    assert get_transaction(db_session, out_tx.id) is None
+    assert get_transaction(db_session, in_tx.id) is None
+
+
+def test_delete_transfer_pair_nonexistent(db_session: Session):
+    assert delete_transfer_pair(db_session, 999) is False
+
+
+def test_update_transfer_pair(db_session: Session):
+    """Updating a transfer should update both legs atomically."""
+    from_acct = _seed_account(db_session, "Source", balance="5000")
+    to_acct = _seed_account(db_session, "Dest", balance="1000")
+
+    out_tx, in_tx = create_transfer(
+        db=db_session,
+        from_account_id=from_acct.id,
+        to_account_id=to_acct.id,
+        amount=Decimal("1000"),
+        description="Transfer",
+        date=datetime.date(2026, 6, 1),
+    )
+
+    result = update_transfer_pair(
+        db_session,
+        out_tx.id,
+        amount=Decimal("2000"),
+        description="Updated Transfer",
+        date=datetime.date(2026, 6, 15),
+    )
+
+    assert result is not None
+    updated_out, updated_in = result
+
+    # Outgoing leg should be negative
+    assert updated_out.amount == Decimal("-2000")
+    assert updated_out.description == "Updated Transfer"
+    assert updated_out.date == datetime.date(2026, 6, 15)
+    assert updated_out.account_id == from_acct.id
+
+    # Incoming leg should be positive
+    assert updated_in.amount == Decimal("2000")
+    assert updated_in.description == "Updated Transfer"
+    assert updated_in.date == datetime.date(2026, 6, 15)
+    assert updated_in.account_id == to_acct.id
+
+    # Balances should reflect the new amount
+    assert compute_account_balance(from_acct, db_session) == Decimal("3000")
+    assert compute_account_balance(to_acct, db_session) == Decimal("3000")
+
+
+def test_update_transfer_pair_swap_accounts(db_session: Session):
+    """Swapping from/to accounts should reassign the legs correctly."""
+    from_acct = _seed_account(db_session, "Source", balance="5000")
+    to_acct = _seed_account(db_session, "Dest", balance="1000")
+
+    out_tx, in_tx = create_transfer(
+        db=db_session,
+        from_account_id=from_acct.id,
+        to_account_id=to_acct.id,
+        amount=Decimal("1000"),
+        description="Transfer",
+        date=datetime.date(2026, 6, 1),
+    )
+
+    # Swap accounts
+    result = update_transfer_pair(
+        db_session,
+        out_tx.id,
+        from_account_id=to_acct.id,
+        to_account_id=from_acct.id,
+    )
+
+    assert result is not None
+    updated_out, updated_in = result
+
+    # Outgoing leg is now from to_acct
+    assert updated_out.account_id == to_acct.id
+    assert updated_out.amount == Decimal("-1000")
+
+    # Incoming leg is now to from_acct
+    assert updated_in.account_id == from_acct.id
+    assert updated_in.amount == Decimal("1000")
+
+    # Balances should reflect the swap
+    assert compute_account_balance(from_acct, db_session) == Decimal("6000")
+    assert compute_account_balance(to_acct, db_session) == Decimal("0")
+
+
+def test_update_transfer_pair_nonexistent(db_session: Session):
+    result = update_transfer_pair(db_session, 999, description="Nope")
+    assert result is None
+
+
+def test_edit_transfer_page_returns_200(client: TestClient):
+    """GET /transactions/{id}/edit for a transfer should return 200."""
+    client.post("/accounts", data={"name": "Source", "type": "bank"},
+                headers={"HX-Request": "true"})
+    client.post("/accounts", data={"name": "Dest", "type": "bank"},
+                headers={"HX-Request": "true"})
+    client.post("/transactions", data={
+        "type": "transfer",
+        "from_account_id": "1",
+        "to_account_id": "2",
+        "amount": "500",
+        "description": "Transfer",
+        "date": "2026-06-01",
+    }, headers={"HX-Request": "true"})
+
+    txs = client.get("/api/transactions").json()
+    transfer_tx = next(t for t in txs if t["type"] == "transfer")
+
+    response = client.get(f"/transactions/{transfer_tx['id']}/edit")
+    assert response.status_code == 200
+    assert "Transfer" in response.text
+    assert "Save changes" in response.text
+
+
+def test_edit_transfer_via_htmx(client: TestClient):
+    """PATCH /transactions/{id} for a transfer should update both legs."""
+    client.post("/accounts", data={"name": "Source", "type": "bank"},
+                headers={"HX-Request": "true"})
+    client.post("/accounts", data={"name": "Dest", "type": "bank"},
+                headers={"HX-Request": "true"})
+    client.post("/transactions", data={
+        "type": "transfer",
+        "from_account_id": "1",
+        "to_account_id": "2",
+        "amount": "500",
+        "description": "Transfer",
+        "date": "2026-06-01",
+    }, headers={"HX-Request": "true"})
+
+    txs = client.get("/api/transactions").json()
+    transfer_tx = next(t for t in txs if t["type"] == "transfer")
+
+    response = client.patch(
+        f"/transactions/{transfer_tx['id']}",
+        data={
+            "amount": "1000",
+            "description": "Updated Transfer",
+            "date": "2026-06-15",
+        },
+        headers={"HX-Request": "true"},
+    )
+    assert response.status_code == 200
+    assert response.headers.get("HX-Redirect") == "/transactions"
+
+    # Verify both legs were updated
+    txs = client.get("/api/transactions").json()
+    assert len(txs) == 2
+    amounts = sorted([t["amount"] for t in txs])
+    assert amounts == ["-1000.00", "1000.00"]
+    assert all(t["description"] == "Updated Transfer" for t in txs)
+
+
+def test_edit_transfer_via_json(client: TestClient):
+    """PATCH /transactions/{id} for a transfer (form data) should update both legs."""
+    client.post("/accounts", data={"name": "Source", "type": "bank"},
+                headers={"HX-Request": "true"})
+    client.post("/accounts", data={"name": "Dest", "type": "bank"},
+                headers={"HX-Request": "true"})
+    client.post("/transactions", data={
+        "type": "transfer",
+        "from_account_id": "1",
+        "to_account_id": "2",
+        "amount": "500",
+        "description": "Transfer",
+        "date": "2026-06-01",
+    }, headers={"HX-Request": "true"})
+
+    txs = client.get("/api/transactions").json()
+    transfer_tx = next(t for t in txs if t["type"] == "transfer")
+
+    response = client.patch(
+        f"/transactions/{transfer_tx['id']}",
+        data={"amount": "750", "description": "JSON Update", "date": "2026-06-20"},
+    )
+    assert response.status_code == 200
+    assert response.json()["description"] == "JSON Update"
+
+
+def test_delete_transfer_via_htmx(client: TestClient):
+    """Deleting a transfer via HTMX should delete both legs."""
+    client.post("/accounts", data={"name": "Source", "type": "bank"},
+                headers={"HX-Request": "true"})
+    client.post("/accounts", data={"name": "Dest", "type": "bank"},
+                headers={"HX-Request": "true"})
+    client.post("/transactions", data={
+        "type": "transfer",
+        "from_account_id": "1",
+        "to_account_id": "2",
+        "amount": "500",
+        "description": "Transfer",
+        "date": "2026-06-01",
+    }, headers={"HX-Request": "true"})
+
+    txs = client.get("/api/transactions").json()
+    transfer_tx = next(t for t in txs if t["type"] == "transfer")
+
+    response = client.delete(
+        f"/transactions/{transfer_tx['id']}",
+        headers={"HX-Request": "true"},
+    )
+    assert response.status_code == 200
+    assert response.headers.get("HX-Trigger") == "transaction-deleted"
+
+    # Verify both legs are deleted
+    remaining = client.get("/api/transactions").json()
+    assert len(remaining) == 0

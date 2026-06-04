@@ -79,6 +79,67 @@ def update_transaction(db: Session, transaction_id: int,
     return tx
 
 
+def update_transfer_pair(db: Session, transaction_id: int,
+                         amount: Decimal | None = None,
+                         description: str | None = None,
+                         date: datetime.date | None = None,
+                         notes: str | None = None,
+                         from_account_id: int | None = None,
+                         to_account_id: int | None = None,
+                         ) -> tuple[Transaction, Transaction] | None:
+    """Update both legs of a transfer atomically.
+
+    Returns the (outgoing, incoming) pair, or None if not found.
+    The outgoing leg gets -amount, the incoming leg gets +amount.
+    If from/to account IDs are swapped, the legs are re-assigned.
+    """
+    tx = get_transaction(db, transaction_id)
+    if tx is None or tx.type != TransactionType.TRANSFER:
+        return None
+
+    # Find the paired transaction
+    pair_id = tx.transfer_pair_id
+    if pair_id is None:
+        return None
+
+    pair_tx = get_transaction(db, pair_id)
+    if pair_tx is None:
+        return None
+
+    # Determine which leg is outgoing (negative) and which is incoming (positive)
+    if tx.amount < 0:
+        out_tx, in_tx = tx, pair_tx
+    else:
+        out_tx, in_tx = pair_tx, tx
+
+    # Apply account changes if provided
+    if from_account_id is not None:
+        out_tx.account_id = from_account_id
+    if to_account_id is not None:
+        in_tx.account_id = to_account_id
+
+    # Apply amount (stored as signed: outgoing is negative)
+    if amount is not None:
+        out_tx.amount = -abs(amount)
+        in_tx.amount = abs(amount)
+
+    # Apply shared fields to both legs
+    if description is not None:
+        out_tx.description = description
+        in_tx.description = description
+    if date is not None:
+        out_tx.date = date
+        in_tx.date = date
+    if notes is not None:
+        out_tx.notes = notes or None
+        in_tx.notes = notes or None
+
+    db.commit()
+    db.refresh(out_tx)
+    db.refresh(in_tx)
+    return out_tx, in_tx
+
+
 def delete_transaction(db: Session, transaction_id: int) -> bool:
     tx = get_transaction(db, transaction_id)
     if tx is None:
@@ -86,6 +147,34 @@ def delete_transaction(db: Session, transaction_id: int) -> bool:
     db.delete(tx)
     db.commit()
     return True
+
+
+def delete_transfer_pair(db: Session, transaction_id: int) -> bool:
+    """Delete both legs of a transfer. Returns False if the transaction is not found."""
+    tx = get_transaction(db, transaction_id)
+    if tx is None:
+        return False
+
+    if tx.type != TransactionType.TRANSFER:
+        return False
+
+    # Find the paired transaction
+    pair_id = tx.transfer_pair_id
+    if pair_id is not None:
+        pair_tx = get_transaction(db, pair_id)
+        if pair_tx is not None:
+            db.delete(pair_tx)
+
+    db.delete(tx)
+    db.commit()
+    return True
+
+
+def count_transactions_for_account(db: Session, account_id: int) -> int:
+    """Return the number of transactions for a given account."""
+    return db.query(func.count(Transaction.id)).filter(
+        Transaction.account_id == account_id
+    ).scalar()
 
 
 def create_transfer(db: Session, from_account_id: int, to_account_id: int,

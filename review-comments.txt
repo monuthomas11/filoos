@@ -1,0 +1,38 @@
+
+**Priority 1**
+- Make transfer edits pair-safe.
+  - Decide one rule and enforce it everywhere.
+  - Best option: when a transfer row is edited, update both legs together for `amount`, `description`, `date`, and notes.
+  - If changing source/destination accounts is allowed, update both `account_id`s consistently too.
+  - If that feels too big for now, hide/disable edit for transfer rows and return `409` or `422` from the edit endpoint.
+
+- Make transfer deletes pair-safe.
+  - Deleting one transfer leg should either delete both rows in the pair, or be blocked.
+  - Update the delete endpoint and add tests for paired deletion.
+
+- Prevent orphaned transactions on account delete.
+  - Safer v1 behavior: block deletion if the account has transactions and show a helpful message.
+  - Alternative: soft-delete accounts only via `is_active=false`.
+  - I would not recommend silent hard-delete with orphaned history.
+
+**Priority 2**
+- Harden configuration loading.
+  - Add an app-specific env prefix like `FF_`.
+  - Update `.env.example`, docs, and settings parsing accordingly.
+  - Keep backward compatibility briefly if you want a smoother transition.
+
+- Strengthen DB integrity.
+  - Ensure SQLite foreign keys are actually enforced at connection time.
+  - Revisit delete behavior once FK enforcement is active so runtime behavior matches intended rules.
+
+**Priority 3**
+- Add missing regression coverage.
+  - Account delete with existing transactions should fail cleanly.
+  - Transfer edit should keep both legs consistent.
+  - Transfer delete should handle both legs correctly.
+  - Settings should load predictably even if unrelated env vars exist.
+
+**Nice to have**
+- Clarify transfer UX.
+  - In the list, show both sides more explicitly than “Transfer pair”.
+  - On the edit page, either present a dedicated transfer form 
