@@ -12,6 +12,7 @@ from app.models.transaction import TransactionType
 
 class TransactionCreate(BaseModel):
     account_id: int
+    category_id: int | None = None
     amount: Decimal = Field(..., gt=0)
     type: TransactionType
     description: str = Field(..., min_length=1, max_length=200)
@@ -30,6 +31,7 @@ class TransferCreate(BaseModel):
 
 class TransactionUpdate(BaseModel):
     account_id: int | None = None
+    category_id: int | None = None
     amount: Decimal | None = Field(None, gt=0)
     type: TransactionType | None = None
     description: str | None = Field(None, min_length=1, max_length=200)

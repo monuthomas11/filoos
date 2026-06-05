@@ -39,6 +39,19 @@
       {% endif %}
     </div>
 
+    <!-- Category (for expense/income) -->
+    <div id="category-field">
+      <label for="category_id" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Category <span class="text-neutral-400">(optional)</span></label>
+      <select id="category_id" name="category_id"
+        class="mt-1 block w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
+      >
+        <option value="">No category</option>
+        {% for c in categories %}
+        <option value="{{ c.id }}" data-type="{{ c.type.value }}" {% if transaction and transaction.category_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
     <!-- Account (for expense/income) -->
     <div id="single-account-field">
       <label for="account_id" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Account</label>
@@ -137,6 +150,7 @@ function toggleTransferFields() {
   var type = document.getElementById('type').value;
   var singleField = document.getElementById('single-account-field');
   var transferFields = document.getElementById('transfer-account-fields');
+  var categoryField = document.getElementById('category-field');
   var accountSelect = document.getElementById('account_id');
   var fromSelect = document.getElementById('from_account_id');
   var toSelect = document.getElementById('to_account_id');
@@ -144,16 +158,33 @@ function toggleTransferFields() {
   if (type === 'transfer') {
     singleField.classList.add('hidden');
     transferFields.classList.remove('hidden');
+    categoryField.classList.add('hidden');
     accountSelect.required = false;
     fromSelect.required = true;
     toSelect.required = true;
   } else {
     singleField.classList.remove('hidden');
     transferFields.classList.add('hidden');
+    categoryField.classList.remove('hidden');
     accountSelect.required = true;
     fromSelect.required = false;
     toSelect.required = false;
   }
+
+  // Filter category options by type
+  var catSelect = document.getElementById('category_id');
+  var options = catSelect.options;
+  for (var i = 0; i < options.length; i++) {
+    var opt = options[i];
+    if (opt.value === '') { opt.style.display = ''; continue; }
+    var catType = opt.getAttribute('data-type');
+    opt.style.display = (catType === type) ? '' : 'none';
+  }
+  // Reset selection if current option is now hidden
+  if (catSelect.options[catSelect.selectedIndex].style.display === 'none') {
+    catSelect.value = '';
+  }
+
   hideError();
 }
 

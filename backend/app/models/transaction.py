@@ -32,7 +32,7 @@ class Transaction(Base, TimestampMixin):
         ForeignKey("accounts.id"), nullable=False, index=True
     )
     category_id: Mapped[int | None] = mapped_column(
-        Integer, nullable=True
+        ForeignKey("categories.id"), nullable=True
     )
     amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     type: Mapped[TransactionType] = mapped_column(
@@ -50,3 +50,4 @@ class Transaction(Base, TimestampMixin):
     )
 
     account = relationship("Account")
+    category = relationship("Category", back_populates="transactions")

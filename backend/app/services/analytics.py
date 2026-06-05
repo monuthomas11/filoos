@@ -8,6 +8,8 @@ from decimal import Decimal
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.models.budget import Budget
+from app.models.category import Category
 from app.models.transaction import Transaction, TransactionType
 
 
@@ -92,10 +94,9 @@ def category_breakdown(
     year: int | None = None,
     month: int | None = None,
 ) -> list[dict]:
-    """Return transaction totals grouped by type as a fallback breakdown.
+    """Return transaction totals grouped by category.
 
-    Once the Category model exists (Phase 5) this should be updated to group
-    by ``Transaction.category_id`` with proper category labels.
+    Falls back to type-based grouping when no categories exist.
     """
     today = datetime.date.today()
     if year is None:
@@ -109,6 +110,37 @@ def category_breakdown(
     else:
         end = datetime.date(year, month + 1, 1)
 
+    # Try category-based grouping first
+    cat_rows = (
+        db.query(
+            Category.name,
+            Category.color,
+            func.coalesce(func.sum(func.abs(Transaction.amount)), 0),
+        )
+        .outerjoin(Category, Transaction.category_id == Category.id)
+        .filter(
+            Transaction.date >= start,
+            Transaction.date < end,
+            Transaction.type != TransactionType.TRANSFER,
+        )
+        .group_by(Category.id, Category.name, Category.color)
+        .all()
+    )
+
+    # Check if any transactions have categories assigned
+    if any(name is not None for name, _, _ in cat_rows):
+        broken = cat_rows
+    else:
+        broken = None
+
+    if broken is not None:
+        return [
+            {"label": name or "Uncategorized", "color": color or "#737373", "amount": str(amount)}
+            for name, color, amount in broken
+            if amount > 0
+        ]
+
+    # Fallback: group by transaction type
     rows = (
         db.query(
             Transaction.type,
@@ -124,11 +156,81 @@ def category_breakdown(
         TransactionType.EXPENSE: "Expense",
         TransactionType.TRANSFER: "Transfer",
     }
+    palette = {TransactionType.INCOME: "#16a34a", TransactionType.EXPENSE: "#dc2626", TransactionType.TRANSFER: "#4f46e5"}
     return [
-        {"label": label_map[r[0]], "amount": str(abs(r[1]))}
+        {"label": label_map[r[0]], "color": palette[r[0]], "amount": str(abs(r[1]))}
         for r in rows
         if r[1] != 0
     ]
+
+
+def budget_progress(
+    db: Session,
+    year: int | None = None,
+    month: int | None = None,
+) -> list[dict]:
+    """Return budget progress for each active budget in a given month.
+
+    Returns category name, budget amount, spent amount, percentage, remaining.
+    """
+    today = datetime.date.today()
+    if year is None:
+        year = today.year
+    if month is None:
+        month = today.month
+
+    start = datetime.date(year, month, 1)
+    if month == 12:
+        end = datetime.date(year + 1, 1, 1)
+    else:
+        end = datetime.date(year, month + 1, 1)
+
+    budgets = (
+        db.query(Budget)
+        .filter(Budget.is_active.is_(True), Budget.start_date <= end)
+        .all()
+    )
+
+    # Batch-fetch spending for all budget categories in one query
+    category_ids = [b.category_id for b in budgets]
+    spending_rows = (
+        db.query(
+            Transaction.category_id,
+            func.coalesce(func.sum(func.abs(Transaction.amount)), 0),
+        )
+        .filter(
+            Transaction.category_id.in_(category_ids),
+            Transaction.date >= start,
+            Transaction.date < end,
+            Transaction.type == TransactionType.EXPENSE,
+        )
+        .group_by(Transaction.category_id)
+        .all()
+    )
+    spending_map = {row[0]: Decimal(str(row[1])) for row in spending_rows}
+
+    results: list[dict] = []
+    for budget in budgets:
+        spent_decimal = spending_map.get(budget.category_id, Decimal("0"))
+        percentage = round(float(spent_decimal / budget.amount) * 100, 1) if budget.amount > 0 else 0
+        remaining = budget.amount - spent_decimal
+
+        cat_name = budget.category.name if budget.category else "Unknown"
+        cat_color = budget.category.color or "#4f46e5"
+
+        results.append({
+            "budget_id": budget.id,
+            "category_id": budget.category_id,
+            "category_name": cat_name,
+            "category_color": cat_color,
+            "amount": f"{budget.amount:.2f}",
+            "spent": f"{spent_decimal:.2f}",
+            "percentage": percentage,
+            "remaining": f"{remaining:.2f}",
+            "over_budget": remaining < 0,
+        })
+
+    return sorted(results, key=lambda r: r["category_name"])
 
 
 def balance_history(

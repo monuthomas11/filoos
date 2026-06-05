@@ -48,7 +48,8 @@ def get_transaction(db: Session, transaction_id: int) -> Transaction | None:
 def create_transaction(db: Session, account_id: int, amount: Decimal, type_: TransactionType,
                        description: str, date: datetime.date,
                        notes: str | None = None,
-                       transfer_pair_id: int | None = None) -> Transaction:
+                       transfer_pair_id: int | None = None,
+                       category_id: int | None = None) -> Transaction:
     tx = Transaction(
         account_id=account_id,
         amount=amount,
@@ -57,6 +58,7 @@ def create_transaction(db: Session, account_id: int, amount: Decimal, type_: Tra
         notes=notes,
         date=date,
         transfer_pair_id=transfer_pair_id,
+        category_id=category_id,
     )
     db.add(tx)
     db.commit()
@@ -69,6 +71,9 @@ def update_transaction(db: Session, transaction_id: int,
     tx = get_transaction(db, transaction_id)
     if tx is None:
         return None
+    # category_id must be settable to None (to clear), so handle it separately
+    if "category_id" in kwargs:
+        tx.category_id = kwargs.pop("category_id")
     for key, value in kwargs.items():
         if value is not None:
             setattr(tx, key, value)

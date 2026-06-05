@@ -20,12 +20,9 @@ from app.deps import get_db
 from app.models.account import AccountType
 from app.schemas.account import AccountCreate, AccountRead, AccountUpdate
 from app.templates import templates
+from app.utils import is_htmx
 
 router = APIRouter()
-
-
-def _is_htmx(request: Request) -> bool:
-    return request.headers.get("hx-request") == "true"
 
 
 # ------------------------------------------------------------------
@@ -96,7 +93,7 @@ async def account_create(
         is_active=is_active,
     )
     account = create_account(db, data)
-    if _is_htmx(request):
+    if is_htmx(request):
         return Response(status_code=200, headers={"HX-Redirect": "/accounts"})
     return _respond_with_card(request, account, db)
 
@@ -137,7 +134,7 @@ async def account_update(
     account = update_account(db, account_id, data)
     if account is None:
         return HTMLResponse("Account not found", status_code=404)
-    if _is_htmx(request):
+    if is_htmx(request):
         return Response(status_code=200, headers={"HX-Redirect": "/accounts"})
     return _respond_with_card(request, account, db)
 
@@ -153,7 +150,7 @@ async def account_delete(
         if error_msg == "Account not found":
             return HTMLResponse("Account not found", status_code=404)
         # Has transactions — block deletion
-        if _is_htmx(request):
+        if is_htmx(request):
             return HTMLResponse(
                 "Cannot delete account with existing transactions. Remove all transactions first.",
                 status_code=409,
@@ -162,7 +159,7 @@ async def account_delete(
             status_code=409,
             detail="Cannot delete account with existing transactions",
         )
-    if _is_htmx(request):
+    if is_htmx(request):
         return Response(status_code=200, headers={"HX-Trigger": "account-deleted"})
     return RedirectResponse(url="/accounts", status_code=303)
 
@@ -200,7 +197,7 @@ async def account_balance_json(account_id: int, db: Session = Depends(get_db)):
 
 def _respond_with_card(request: Request, account, db: Session):
     balance = compute_balance(account, db)
-    if _is_htmx(request):
+    if is_htmx(request):
         return templates.TemplateResponse(
             request,
             "partials/account_card.html",

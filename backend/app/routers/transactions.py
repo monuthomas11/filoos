@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.crud.account import (
     list_accounts,
 )
+from app.crud.category import get_category, list_categories
 from app.crud.transaction import (
     create_transaction,
     create_transfer,
@@ -26,12 +27,9 @@ from app.deps import get_db
 from app.models.transaction import TransactionType
 from app.schemas.transaction import TransactionRead
 from app.templates import templates
+from app.utils import is_htmx
 
 router = APIRouter()
-
-
-def _is_htmx(request: Request) -> bool:
-    return request.headers.get("hx-request") == "true"
 
 
 def _get_amount_sign(type_: TransactionType) -> int:
@@ -125,7 +123,7 @@ async def transaction_list_page(
             if pair_tx is not None and pair_tx.account is not None:
                 paired_accounts[tx.id] = pair_tx.account.name
 
-    if _is_htmx(request):
+    if is_htmx(request):
         return templates.TemplateResponse(
             request,
             "partials/transaction_list_items.html",
@@ -155,6 +153,7 @@ async def transaction_create_page(
     db: Session = Depends(get_db),
 ):
     accounts = list_accounts(db)
+    categories = list_categories(db)
     return templates.TemplateResponse(
         request,
         "transactions/form.html",
@@ -163,6 +162,7 @@ async def transaction_create_page(
             "mode": "create",
             "transaction": None,
             "accounts": accounts,
+            "categories": categories,
             "today": datetime.date.today().isoformat(),
         },
     )
@@ -179,6 +179,7 @@ async def transaction_edit_page(
         return HTMLResponse("Transaction not found", status_code=404)
 
     accounts = list_accounts(db)
+    categories = list_categories(db)
 
     # For transfers, find the paired transaction to get from/to account IDs
     from_account_id = None
@@ -201,6 +202,7 @@ async def transaction_edit_page(
             "mode": "edit",
             "transaction": tx,
             "accounts": accounts,
+            "categories": categories,
             "today": datetime.date.today().isoformat(),
             "from_account_id": from_account_id,
             "to_account_id": to_account_id,
@@ -222,6 +224,7 @@ async def transaction_create(
     date: str = Form(...),
     notes: str | None = Form(None),
     account_id: int | None = Form(None),
+    category_id: int | None = Form(None),
     from_account_id: int | None = Form(None),
     to_account_id: int | None = Form(None),
     db: Session = Depends(get_db),
@@ -266,6 +269,16 @@ async def transaction_create(
                 status_code=422, detail="account_id is required"
             )
         signed_amount = amount * _get_amount_sign(parsed_type)
+        if category_id is not None:
+            cat = get_category(db, category_id)
+            if cat is None:
+                raise HTTPException(status_code=422, detail="Category not found")
+            expected = "expense" if parsed_type == TransactionType.EXPENSE else "income"
+            if cat.type.value != expected:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Category type must be {expected}",
+                )
         tx = create_transaction(
             db=db,
             account_id=account_id,
@@ -274,9 +287,10 @@ async def transaction_create(
             description=description,
             date=parsed_date,
             notes=notes or None,
+            category_id=category_id,
         )
 
-    if _is_htmx(request):
+    if is_htmx(request):
         return Response(status_code=200, headers={"HX-Redirect": "/transactions"})
     return TransactionRead.model_validate(tx)
 
@@ -291,6 +305,7 @@ async def transaction_update(
     date: str | None = Form(None),
     notes: str | None = Form(None),
     account_id: int | None = Form(None),
+    category_id: int | None = Form(None),
     from_account_id: int | None = Form(None),
     to_account_id: int | None = Form(None),
     db: Session = Depends(get_db),
@@ -335,7 +350,7 @@ async def transaction_update(
             return HTMLResponse("Transfer not found", status_code=404)
 
         out_tx, in_tx = result
-        if _is_htmx(request):
+        if is_htmx(request):
             return Response(status_code=200, headers={"HX-Redirect": "/transactions"})
         return TransactionRead.model_validate(out_tx)
 
@@ -366,12 +381,25 @@ async def transaction_update(
         patch["notes"] = notes or None
     if account_id is not None:
         patch["account_id"] = account_id
+    # Always set category_id (including None to allow clearing)
+    if category_id is not None:
+        cat = get_category(db, category_id)
+        if cat is None:
+            raise HTTPException(status_code=422, detail="Category not found")
+        tx_type = patch.get("type") or existing.type
+        expected = "expense" if tx_type == TransactionType.EXPENSE else "income"
+        if cat.type.value != expected:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Category type must be {expected}",
+            )
+    patch["category_id"] = category_id
 
     tx = update_transaction(db, transaction_id, **patch)
     if tx is None:
         return HTMLResponse("Transaction not found", status_code=404)
 
-    if _is_htmx(request):
+    if is_htmx(request):
         return Response(status_code=200, headers={"HX-Redirect": "/transactions"})
     return TransactionRead.model_validate(tx)
 
@@ -395,7 +423,7 @@ async def transaction_delete(
     if not ok:
         return HTMLResponse("Transaction not found", status_code=404)
 
-    if _is_htmx(request):
+    if is_htmx(request):
         return Response(
             status_code=200,
             headers={"HX-Trigger": "transaction-deleted"},

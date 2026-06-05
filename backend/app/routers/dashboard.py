@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
@@ -9,6 +11,7 @@ from app.crud.account import get_account
 from app.deps import get_db
 from app.services.analytics import (
     balance_history,
+    budget_progress,
     category_breakdown,
     daily_spending,
     monthly_summary,
@@ -50,6 +53,16 @@ async def dashboard_category_breakdown(
         year = None
         month_int = None
     return {"month": month or "current", "data": category_breakdown(db, year, month_int)}
+
+
+@router.get("/api/dashboard/budgets")
+async def dashboard_budgets(
+    year: int | None = Query(None, description="YYYY"),
+    month: int | None = Query(None, description="1-12"),
+    db: Session = Depends(get_db),
+):
+    """Budget progress for the given month (defaults to current)."""
+    return {"year": year or datetime.date.today().year, "month": month or datetime.date.today().month, "data": budget_progress(db, year, month)}
 
 
 @router.get("/api/accounts/{account_id}/balance-history")
