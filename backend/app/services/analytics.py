@@ -8,9 +8,24 @@ from decimal import Decimal
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models.budget import Budget
+from app.models.budget import Budget, BudgetPeriod
 from app.models.category import Category
 from app.models.transaction import Transaction, TransactionType
+
+
+def _get_period_bounds(year: int, month: int, period: BudgetPeriod) -> tuple[datetime.date, datetime.date]:
+    """Return (start, end) date bounds for the given period within the reference month."""
+    if period == BudgetPeriod.MONTHLY:
+        start = datetime.date(year, month, 1)
+        end = datetime.date(year + 1, 1, 1) if month == 12 else datetime.date(year, month + 1, 1)
+    elif period == BudgetPeriod.WEEKLY:
+        first = datetime.date(year, month, 1)
+        start = first - datetime.timedelta(days=first.weekday())
+        end = start + datetime.timedelta(weeks=1)
+    elif period == BudgetPeriod.YEARLY:
+        start = datetime.date(year, 1, 1)
+        end = datetime.date(year + 1, 1, 1)
+    return start, end
 
 
 def monthly_summary(
@@ -179,35 +194,39 @@ def budget_progress(
     if month is None:
         month = today.month
 
-    start = datetime.date(year, month, 1)
-    if month == 12:
-        end = datetime.date(year + 1, 1, 1)
-    else:
-        end = datetime.date(year, month + 1, 1)
-
     budgets = (
         db.query(Budget)
-        .filter(Budget.is_active.is_(True), Budget.start_date <= end)
+        .filter(Budget.is_active.is_(True))
         .all()
     )
 
-    # Batch-fetch spending for all budget categories in one query
-    category_ids = [b.category_id for b in budgets]
-    spending_rows = (
-        db.query(
-            Transaction.category_id,
-            func.coalesce(func.sum(func.abs(Transaction.amount)), 0),
+    # Group budgets by period and fetch spending per group
+    from collections import defaultdict
+    by_period: dict[BudgetPeriod, list[Budget]] = defaultdict(list)
+    for b in budgets:
+        by_period[b.period].append(b)
+
+    # Build a single spending_map: category_id -> total spent
+    spending_map: dict[int, Decimal] = {}
+    for period, group in by_period.items():
+        period_start, period_end = _get_period_bounds(year, month, period)
+        cat_ids = [b.category_id for b in group]
+        rows = (
+            db.query(
+                Transaction.category_id,
+                func.coalesce(func.sum(func.abs(Transaction.amount)), 0),
+            )
+            .filter(
+                Transaction.category_id.in_(cat_ids),
+                Transaction.date >= period_start,
+                Transaction.date < period_end,
+                Transaction.type == TransactionType.EXPENSE,
+            )
+            .group_by(Transaction.category_id)
+            .all()
         )
-        .filter(
-            Transaction.category_id.in_(category_ids),
-            Transaction.date >= start,
-            Transaction.date < end,
-            Transaction.type == TransactionType.EXPENSE,
-        )
-        .group_by(Transaction.category_id)
-        .all()
-    )
-    spending_map = {row[0]: Decimal(str(row[1])) for row in spending_rows}
+        for cat_id, total in rows:
+            spending_map[cat_id] = Decimal(str(total))
 
     results: list[dict] = []
     for budget in budgets:

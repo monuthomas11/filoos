@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models.category import CategoryType
+from app.utils import validate_hex_color
 
 
 class CategoryCreate(BaseModel):
@@ -14,6 +15,11 @@ class CategoryCreate(BaseModel):
     icon: str | None = Field(None, max_length=50)
     parent_id: int | None = None
 
+    @field_validator("color")
+    @classmethod
+    def color_validator(cls, v: str | None) -> str | None:
+        return validate_hex_color(v)
+
 
 class CategoryUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=100)
@@ -21,6 +27,11 @@ class CategoryUpdate(BaseModel):
     color: str | None = Field(None, max_length=7)
     icon: str | None = Field(None, max_length=50)
     parent_id: int | None = None
+
+    @field_validator("color")
+    @classmethod
+    def color_validator(cls, v: str | None) -> str | None:
+        return validate_hex_color(v)
 
 
 class CategoryRead(BaseModel):

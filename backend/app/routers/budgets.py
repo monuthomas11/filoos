@@ -22,7 +22,7 @@ from app.models.budget import BudgetPeriod
 from app.schemas.budget import BudgetCreate, BudgetRead, BudgetUpdate
 from app.services.analytics import budget_progress
 from app.templates import templates
-from app.utils import is_htmx
+from app.utils import is_htmx, parse_date_or_422
 
 router = APIRouter()
 
@@ -102,11 +102,7 @@ async def budget_create(
     is_active: bool = Form(True),
     db: Session = Depends(get_db),
 ):
-    try:
-        parsed_date = datetime.date.fromisoformat(start_date)
-    except ValueError:
-        raise HTTPException(status_code=422, detail="Invalid date format") from None
-
+    parsed_date = parse_date_or_422(start_date, "start_date")
     if amount <= 0:
         raise HTTPException(status_code=422, detail="Amount must be positive")
 
@@ -134,12 +130,7 @@ async def budget_update(
     is_active: bool | None = Form(None),
     db: Session = Depends(get_db),
 ):
-    parsed_date = None
-    if start_date is not None:
-        try:
-            parsed_date = datetime.date.fromisoformat(start_date)
-        except ValueError:
-            raise HTTPException(status_code=422, detail="Invalid date format") from None
+    parsed_date = parse_date_or_422(start_date, "start_date") if start_date is not None else None
 
     patch: dict[str, object] = {}
     if category_id is not None:

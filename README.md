@@ -18,7 +18,7 @@ See [`PLAN.md`](./PLAN.md) for the full design, architecture, and phased roadmap
 | 2. Accounts | done | Model, CRUD, HTMX forms, page list, dashboard cards, JSON API, 20 tests |
 | 3. Transactions | done | Model, CRUD, HTMX forms, filterable list, transfer flow, 29 tests |
 | 4. Dashboard v1 | done | Analytics service, JSON API, Chart.js charts (daily-spend bar, category donut), monthly KPIs, 16 tests |
-| 5. Categories & Budgets | pending | Category CRUD, budget progress |
+| 5. Categories & Budgets | done | Category CRUD, budget progress bars, 45 tests |
 | 6. Recurring rules | pending | Auto-materialize on startup |
 | 7. Predictions | pending | EMA + seasonality + confidence bands |
 | 8. Polish | pending | Tests, seed data, deploy notes |
@@ -79,15 +79,18 @@ pytest
 
 | Path | Purpose |
 |---|---|---|
-| `GET /` | Dashboard (real balances, recent transactions, Chart.js charts) |
+| `GET /` | Dashboard (real balances, recent transactions, Chart.js charts, budget progress) |
 | `GET /accounts` | Account list (CRUD) |
 | `GET /transactions` | Transaction list (filterable) |
+| `GET /categories` | Category list (CRUD) |
+| `GET /budgets` | Budget list (CRUD) with progress bars |
 | `GET /healthz` | Liveness probe (`{"status":"ok","app":"FutureFunds"}`) |
 | `GET /docs` | Auto-generated OpenAPI docs for the JSON API |
 | `GET /static/*` | CSS / JS / assets |
 | `GET /api/dashboard/summary` | Monthly income/expense/savings-rate KPIs |
 | `GET /api/dashboard/spending` | Daily expense series for Chart.js |
-| `GET /api/dashboard/category-breakdown` | Breakdown by type (categories in Phase 5) |
+| `GET /api/dashboard/category-breakdown` | Breakdown by category |
+| `GET /api/dashboard/budgets` | Budget progress data |
 | `GET /api/accounts/{id}/balance-history` | Daily running balance per account |
 
 ## Project layout

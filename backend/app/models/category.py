@@ -35,4 +35,4 @@ class Category(Base):
         ForeignKey("categories.id"), nullable=True
     )
 
-    transactions = relationship("Transaction", back_populates="category")
+    transactions = relationship("Transaction", back_populates="category", cascade="all, delete-orphan")

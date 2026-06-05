@@ -2,7 +2,7 @@
 
 > **Read this first if you're a new agent/session/model.** It captures *where the project is right now* and the minimum context needed to continue. For full design rationale see [`PLAN.md`](./PLAN.md). For setup & usage see [`README.md`](./README.md).
 
-Last updated: end of **Phase 4 (Dashboard v1)** — Phase 5 (Categories & Budgets) is next.
+Last updated: end of **Phase 5 (Categories & Budgets)** — Phase 6 (Recurring rules) is next.
 
 ---
 
@@ -29,7 +29,7 @@ Last updated: end of **Phase 4 (Dashboard v1)** — Phase 5 (Categories & Budget
 | 2 | Accounts | **done** | Model, CRUD, HTMX forms, page list, dashboard cards, JSON API, 25 test suite |
 | 3 | Transactions | **done** | Model, CRUD, HTMX forms, filterable list, transfer flow, 29 tests |
 | 4 | Dashboard v1 | **done** | Real charts & KPIs from live data, 16 new tests |
-| 5 | Categories & Budgets | pending | Category CRUD, budget progress bars |
+| 5 | Categories & Budgets | **done** | Category CRUD, budget progress bars, 45 new tests |
 | 6 | Recurring rules | pending | Auto-materialize on startup |
 | 7 | Predictions | pending | EMA + day-of-week seasonality + confidence bands |
 | 8 | Polish | pending | Tests, INR seed data, deploy notes, a11y pass |
@@ -88,15 +88,20 @@ Last updated: end of **Phase 4 (Dashboard v1)** — Phase 5 (Categories & Budget
 
 ---
 
-## 4. What was verified (latest session — Phase 4)
+## 4. What was verified (latest session — Phase 5)
 
-- ✅ `pytest -q` → **89 passed, 0 failed** (3 smoke + 24 accounts + 7 config + 39 transactions + 16 dashboard).
+- ✅ `pytest -q` → **134 passed, 0 failed** (3 smoke + 24 accounts + 21 categories + 24 budgets + 7 config + 16 dashboard + 39 transactions).
 - ✅ `GET /api/dashboard/summary` returns income/expense/net/savings_rate.
 - ✅ `GET /api/dashboard/spending?range=7` returns 7 daily entries with proper amounts.
-- ✅ `GET /api/dashboard/category-breakdown` returns breakdown by type.
+- ✅ `GET /api/dashboard/category-breakdown` returns breakdown by type (falls back when no categories assigned).
+- ✅ `GET /api/dashboard/category-breakdown` returns category names/colors when categories are assigned to transactions.
+- ✅ `GET /api/dashboard/budgets` returns budget progress with spent, percentage, remaining.
 - ✅ `GET /api/accounts/1/balance-history?range=7` returns daily running balance.
-- ✅ `GET /` renders canvas elements (`id="spending-chart"`, `id="category-chart"`) and KPI placeholder IDs (`id="kpi-income"`, etc.).
-- ✅ `GET /docs` serves auto-generated OpenAPI docs including dashboard endpoints.
+- ✅ `GET /` renders canvas elements (`id="spending-chart"`, `id="category-chart"`), KPI placeholder IDs (`id="kpi-income"`, etc.), and budget progress container (`id="budget-section"`, `id="budget-progress-container"`).
+- ✅ `GET /docs` serves auto-generated OpenAPI docs including dashboard and category/budget endpoints.
+- ✅ Full CRUD round-trip for categories via HTMX (create → edit → delete).
+- ✅ Full CRUD round-trip for budgets via HTMX (create → edit → delete) with live progress bars.
+- ✅ `ruff check .` — all clean.
 
 ---
 
@@ -156,11 +161,50 @@ cd backend && ruff check .
 
 ---
 
-## 8. Next up: Phase 5 — Categories & Budgets
+## 8. Next up: Phase 6 — Recurring rules
 
-Phase 5 builds the `Category` and `Budget` models + migrations, CRUD pages, and budget progress bars on the dashboard. See `PLAN.md` §14 for the concrete checklist.
+Phase 6 adds the `RecurringRule` model + migration, `services/recurring.py` materializer, auto-run on startup, and a "next 5 occurrences" preview. See `PLAN.md` §14 for the concrete checklist.
 
 ## 9. Completed phases
+
+### Phase 5 — Categories & Budgets
+
+Shipped:
+- `app/models/category.py` — `Category` ORM model with `CategoryType` enum (expense/income), nullable self-FK `parent_id`, color, icon.
+- `app/models/budget.py` — `Budget` ORM model with `BudgetPeriod` enum (weekly/monthly/yearly), FK to `categories.id`, decimal `amount`, `start_date`, `is_active`, `TimestampMixin`.
+- `app/models/transaction.py` — `category_id` changed from plain `Integer` to `ForeignKey("categories.id")` with `category` relationship.
+- `app/models/__init__.py` — imports `Budget`, `BudgetPeriod`, `Category`, `CategoryType`.
+- Alembic migration `2a9b3c7def01` — creates `categories` and `budgets` tables; adds FK on `transactions.category_id`.
+- `app/schemas/category.py`, `app/schemas/budget.py` — Pydantic DTOs (Create/Update/Read).
+- `app/schemas/transaction.py` — `TransactionCreate`/`TransactionUpdate` now include optional `category_id`.
+- `app/crud/category.py` — CRUD with type filter, default color, deletion guard for transactions.
+- `app/crud/budget.py` — CRUD with active-only filter.
+- `app/crud/transaction.py` — `create_transaction` accepts optional `category_id`.
+- `app/routers/categories.py` — 3 HTML pages, 3 HTMX mutations, 2 JSON API endpoints.
+- `app/routers/budgets.py` — 3 HTML pages, 3 HTMX mutations, 2 JSON API endpoints. List page renders live progress bars.
+- `app/services/analytics.py` — `category_breakdown` updated to group by real `Category` (falls back to type-based); `budget_progress` added (per-budget spend/percentage/remaining/over-budget).
+- `app/routers/dashboard.py` — new `GET /api/dashboard/budgets` endpoint.
+- Templates: `categories/list.html`, `categories/form.html`, `budgets/list.html`, `budgets/form.html`, `partials/category_card.html`, `partials/budget_card.html`.
+- `app/templates/base.html` — "Categories" nav added; "Budgets" nav enabled; footer "Phase 5".
+- `app/templates/dashboard.html` — budget progress section rendered client-side; category doughnut uses per-item colors; Phase 5 build status green.
+- `app/main.py` — mounts `categories_router` and `budgets_router`.
+- `tests/test_categories.py` — 21 tests (CRUD + HTML + HTMX + JSON + validation). All pass.
+- `tests/test_budgets.py` — 24 tests (CRUD + budget_progress scenarios + HTML + HTMX + JSON + validation + dashboard endpoint). All pass.
+
+Key decisions during implementation:
+- `category_breakdown` groups by real categories when transactions have them assigned; falls back to type-based grouping for backward compatibility.
+- Budget progress is computed on-the-fly from transactions (not stored) — sums expenses per category within the current period.
+- Dashboard budget progress is fetched client-side from `/api/dashboard/budgets` and rendered with inline HTML progress bars.
+- The category form is deliberately simple (no `parent_id` UI) — self-referencing categories can be added in a future pass.
+
+Verified:
+- `pytest -q` → **134 passed** (3 smoke + 24 accounts + 21 categories + 24 budgets + 7 config + 16 dashboard + 39 transactions).
+- `GET /categories` renders list with empty state and "Add category" CTA.
+- `GET /budgets` renders list with progress bars from live transactions.
+- `GET /api/dashboard/budgets` returns budget progress JSON.
+- `GET /api/dashboard/category-breakdown` returns category names/colors when assigned.
+- Full CRUD round-trip for categories and budgets via HTMX.
+- `ruff check .` — all clean.
 
 ### Phase 4 — Dashboard v1
 

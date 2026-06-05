@@ -29,7 +29,22 @@ from app.models.account import AccountType  # noqa: E402
 from app.schemas.account import AccountCreate  # noqa: E402
 
 
+def _clean(db: Session) -> None:
+    """Delete all existing data so the seed is idempotent."""
+    from app.models.transaction import Transaction
+    from app.models.budget import Budget
+    from app.models.category import Category
+    from app.models.account import Account
+
+    db.query(Transaction).delete()
+    db.query(Budget).delete()
+    db.query(Category).delete()
+    db.query(Account).delete()
+    db.commit()
+
+
 def _seed(db: Session) -> None:
+    _clean(db)
     today = datetime.date.today()
 
     # ------------------------------------------------------------------

@@ -39,7 +39,7 @@ class Account(Base, TimestampMixin):
     __tablename__ = "accounts"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
     type: Mapped[AccountType] = mapped_column(
         SAEnum(AccountType, name="account_type_enum", create_constraint=True),
         nullable=False,

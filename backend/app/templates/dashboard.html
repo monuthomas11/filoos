@@ -193,7 +193,7 @@ document.addEventListener('DOMContentLoaded', function () {
           datasets: [{
             label: 'Spending',
             data: data.map(function (d) { return parseFloat(d.amount); }),
-            backgroundColor: '#4f46e5',
+            backgroundColor: window.FF_COLORS.accent,
             borderRadius: 4,
           }],
         },
@@ -240,7 +240,7 @@ document.addEventListener('DOMContentLoaded', function () {
           labels: data.map(function (d) { return d.label; }),
           datasets: [{
             data: data.map(function (d) { return parseFloat(d.amount); }),
-            backgroundColor: data.map(function (d) { return d.color || '#4f46e5'; }),
+            backgroundColor: data.map(function (d) { return d.color || window.FF_COLORS.accent; }),
             borderWidth: 0,
           }],
         },
@@ -279,7 +279,7 @@ document.addEventListener('DOMContentLoaded', function () {
       var html = '';
       data.forEach(function (b) {
         var pct = Math.min(b.percentage, 100);
-        var barColor = b.over_budget ? '#dc2626' : (b.category_color || '#4f46e5');
+        var barColor = b.over_budget ? window.FF_COLORS.negative : (b.category_color || window.FF_COLORS.accent);
         html += '<div class="space-y-1">';
         html += '<div class="flex items-baseline justify-between text-sm">';
         html += '<span class="text-neutral-700 dark:text-neutral-300">' + b.category_name + '</span>';

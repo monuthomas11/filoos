@@ -185,6 +185,8 @@ def count_transactions_for_account(db: Session, account_id: int) -> int:
 def create_transfer(db: Session, from_account_id: int, to_account_id: int,
                     amount: Decimal, description: str, date: datetime.date,
                     notes: str | None = None) -> tuple[Transaction, Transaction]:
+    if from_account_id == to_account_id:
+        raise ValueError("From and to accounts must be different")
 
     out_tx = Transaction(
         account_id=from_account_id,

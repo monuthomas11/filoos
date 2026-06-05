@@ -230,7 +230,13 @@ Indexes: `(date)`, `(account_id, date)`.
 | POST   | `/transactions`               | `HX-Redirect: /transactions`        |
 | PATCH  | `/transactions/{id}`          | `HX-Redirect: /transactions`        |
 | DELETE | `/transactions/{id}`          | empty (200 OK, triggers refresh)     |
-| (same for categories, budgets, recurring in future phases)                |
+| POST   | `/categories`                 | `HX-Redirect: /categories`            |
+| PATCH  | `/categories/{id}`            | `HX-Redirect: /categories`            |
+| DELETE | `/categories/{id}`            | empty (200 OK, triggers refresh)       |
+| POST   | `/budgets`                    | `HX-Redirect: /budgets`               |
+| PATCH  | `/budgets/{id}`               | `HX-Redirect: /budgets`               |
+| DELETE | `/budgets/{id}`               | empty (200 OK, triggers refresh)       |
+| (same for recurring in Phase 6)                                        |
 
 > POST/PATCH return `HX-Redirect` because the create/edit forms live on dedicated pages
 > where the target element (`#account-list`, `#transaction-list`) does not exist.
@@ -243,10 +249,15 @@ Indexes: `(date)`, `(account_id, date)`.
 |--------|--------------------------------------------------------|--------------------------|
 | GET    | `/api/transactions`                                    | list (filterable)        |
 | GET    | `/api/transactions/{id}`                               | single transaction       |
+| GET    | `/api/categories`                                      | list of categories       |
+| GET    | `/api/categories/{id}`                                 | single category          |
+| GET    | `/api/budgets`                                         | list of budgets          |
+| GET    | `/api/budgets/{id}`                                    | single budget            |
 | GET    | `/api/accounts/{id}/balance`                           | account balance          |
 | GET    | `/api/dashboard/summary`                               | totals for current month |
 | GET    | `/api/dashboard/spending?range=30d`                    | daily expense series     |
 | GET    | `/api/dashboard/category-breakdown?month=YYYY-MM`      | category totals          |
+| GET    | `/api/dashboard/budgets`                               | budget progress          |
 | GET    | `/api/accounts/{id}/balance-history?range=90d`         | daily balance series     |
 | GET    | `/api/predictions/expenses?horizon=30`                 | 7/30-day forecast + band |
 | GET    | `/api/predictions/balance?horizon=90`                  | projected balance + band |
@@ -306,7 +317,8 @@ projected_balance(t) = current_balance
 | 2 | **Accounts** | `Account` model + migration, CRUD pages, HTMX form partials, validation, color/icon per account | Create cash + bank + credit card; balances on placeholder dashboard |
 | 3 | **Transactions** | **done** | Ledger, transfers, filterable list, 29 tests |
 | 4 | **Dashboard v1** | **done** | `services/analytics.py`, `/api/dashboard/*`, real Chart.js charts (daily-spend bar, category donut), monthly KPI cards, 16 tests |
-| 5 | **Categories & Budgets** | `Category`, `Budget` models + migrations, CRUD pages, budget progress bars on dashboard | Set ₹10,000 food budget; see progress on dashboard |
+| 5 | **Categories & Budgets** | **done** | `Category`, `Budget` models + migrations, CRUD, budget progress bars, 45 new tests |
+| 5 | **Categories & Budgets** | **done** | `Category`, `Budget` models + migrations, CRUD pages, budget progress bars on dashboard, 45 new tests |
 | 6 | **Recurring rules** | `RecurringRule` model + migration, `services/recurring.py` materializer, auto-run on startup, "next 5 occurrences" preview | Mark salary as monthly; see it auto-appear on the 1st |
 | 7 | **Predictions** | `services/forecasting.py`, `/api/predictions/*`, balance projection chart w/ confidence band, 7/30-day expense forecast, runway warning | See projected balance 90 days out |
 | 8 | **Polish** | pytest suite, README polish, free-hosting notes (Render/Railway/Fly), error pages, accessibility pass | Test suite green; project shareable |
@@ -433,6 +445,47 @@ Verified:
 - `GET /api/dashboard/spending?range=7` returns 7 daily entries with proper amounts.
 - Dashboard page renders canvas elements with `id="spending-chart"` and `id="category-chart"`.
 - KPI cards show real data after client-side fetch completes.
+
+### Phase 5 — Categories & Budgets (complete)
+
+Shipped:
+- `app/models/category.py` — `Category` ORM model with `CategoryType` enum (expense/income), nullable self-FK `parent_id`, color, icon.
+- `app/models/budget.py` — `Budget` ORM model with `BudgetPeriod` enum (weekly/monthly/yearly), FK to `categories.id`, decimal `amount`, `start_date`, `is_active`, `TimestampMixin`.
+- `app/models/transaction.py` — `category_id` column updated from plain `Integer` to `ForeignKey("categories.id")` with `category` relationship.
+- `app/models/__init__.py` — imports `Budget`, `BudgetPeriod`, `Category`, `CategoryType`.
+- Alembic migration `2a9b3c7def01` — creates `categories` and `budgets` tables; adds FK constraint on `transactions.category_id`.
+- `app/schemas/category.py` — `CategoryCreate`, `CategoryUpdate`, `CategoryRead` Pydantic DTOs.
+- `app/schemas/budget.py` — `BudgetCreate`, `BudgetUpdate`, `BudgetRead` Pydantic DTOs.
+- `app/schemas/transaction.py` — `TransactionCreate` and `TransactionUpdate` now include optional `category_id`.
+- `app/crud/category.py` — `list_categories` (with optional type filter), `get_category`, `create_category` (defaults color to purple), `update_category`, `delete_category` (blocks if has transactions).
+- `app/crud/budget.py` — `list_budgets` (with optional active-only filter), `get_budget`, `create_budget`, `update_budget`, `delete_budget`.
+- `app/crud/transaction.py` — `create_transaction` accepts optional `category_id` param.
+- `app/routers/categories.py` — 3 HTML pages (`/categories`, `/categories/new`, `/categories/{id}/edit`), 3 HTMX mutation endpoints (POST/PATCH/DELETE), 2 JSON API endpoints (`GET /api/categories`, `GET /api/categories/{id}`).
+- `app/routers/budgets.py` — 3 HTML pages (`/budgets`, `/budgets/new`, `/budgets/{id}/edit`), 3 HTMX mutation endpoints (POST/PATCH/DELETE), 2 JSON API endpoints (`GET /api/budgets`, `GET /api/budgets/{id}`). Budget list page renders real-time progress bars with spent/remaining data.
+- `app/services/analytics.py` — `category_breakdown` updated to group by real `Category` (falls back to type-based grouping when no categories are assigned); `budget_progress` added (returns per-budget spend percentage, remaining, over-budget flag).
+- `app/routers/dashboard.py` — new `GET /api/dashboard/budgets` endpoint returns budget progress data for the dashboard.
+- Templates: `categories/list.html`, `categories/form.html`, `budgets/list.html`, `budgets/form.html`, `partials/category_card.html`, `partials/budget_card.html` (with inline progress bar).
+- `app/templates/base.html` — "Categories" nav link added next to "Transactions"; "Budgets" nav link enabled; footer updated to "Phase 5".
+- `app/templates/dashboard.html` — budget progress section added (client-side rendered from `/api/dashboard/budgets` with progress bars); category doughnut chart uses per-item colors from the API; Phase 5 build status green.
+- `app/main.py` — mounts `categories_router` and `budgets_router`.
+- `tests/test_categories.py` — 21 tests: enum values, CRUD operations, 3 HTML page tests, 3 HTMX mutation tests, 3 JSON API tests, 2 validation failure tests. All pass.
+- `tests/test_budgets.py` — 24 tests: enum values, CRUD operations, 3 budget_progress scenarios (no data, with spending, over budget, ignores inactive), 4 HTML page tests, 3 HTMX mutation tests, 3 JSON API tests, 2 validation failure tests, 1 dashboard endpoint test. All pass.
+
+Key decisions during implementation:
+- `category_breakdown` groups by real categories when transactions have them assigned; falls back to type-based grouping for backward compatibility.
+- Budget progress is computed on-the-fly from transactions (not stored) — sums expenses per category within the current period.
+- Budget cards on the budget list page show a computed progress bar with spent amount, percentage, remaining, and over-budget detection.
+- Dashboard budget progress is fetched client-side from `/api/dashboard/budgets` and rendered with inline HTML (no Chart.js needed for progress bars).
+
+Verified:
+- `pytest -q` → **134 passed** (3 smoke + 24 accounts + 21 categories + 24 budgets + 7 config + 16 dashboard + 39 transactions).
+- `GET /categories` renders category list with empty state and "Add category" CTA.
+- `GET /budgets` renders budget list with progress bars computed from live transaction data.
+- `GET /api/dashboard/budgets` returns budget progress JSON with correct spent/percentage/remaining.
+- `GET /api/dashboard/category-breakdown` now returns category names and colors when categories are assigned.
+- `GET /` renders budget progress section with `id="budget-section"` and `id="budget-progress-container"`.
+- Full CRUD round-trip for categories and budgets via HTMX.
+- ruff clean.
 
 ### Phase 3 — Transactions (complete)
 

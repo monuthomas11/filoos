@@ -27,7 +27,7 @@ from app.deps import get_db
 from app.models.transaction import TransactionType
 from app.schemas.transaction import TransactionRead
 from app.templates import templates
-from app.utils import is_htmx
+from app.utils import is_htmx, parse_date_or_422
 
 router = APIRouter()
 
@@ -233,11 +233,7 @@ async def transaction_create(
         parsed_type = TransactionType(type)
     except ValueError:
         raise HTTPException(status_code=422, detail="Invalid transaction type") from None
-    try:
-        parsed_date = datetime.date.fromisoformat(date)
-    except ValueError:
-        raise HTTPException(status_code=422, detail="Invalid date format") from None
-
+    parsed_date = parse_date_or_422(date)
     if amount <= 0:
         raise HTTPException(status_code=422, detail="Amount must be positive")
 
@@ -317,12 +313,7 @@ async def transaction_update(
     # Handle transfer edits — update both legs atomically
     if existing.type == TransactionType.TRANSFER:
         # Parse date if provided
-        parsed_date = None
-        if date is not None:
-            try:
-                parsed_date = datetime.date.fromisoformat(date)
-            except ValueError:
-                raise HTTPException(status_code=422, detail="Invalid date format") from None
+        parsed_date = parse_date_or_422(date) if date is not None else None
 
         # Validate amount if provided
         if amount is not None and amount <= 0:
@@ -373,10 +364,7 @@ async def transaction_update(
     if description is not None:
         patch["description"] = description
     if date is not None:
-        try:
-            patch["date"] = datetime.date.fromisoformat(date)
-        except ValueError:
-            raise HTTPException(status_code=422, detail="Invalid date format") from None
+        patch["date"] = parse_date_or_422(date)
     if notes is not None:
         patch["notes"] = notes or None
     if account_id is not None:
