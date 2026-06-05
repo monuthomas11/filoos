@@ -298,6 +298,10 @@ Verified:
 - Full CRUD round-trip via HTMX (create → edit → delete).
 - Transfer from A to B updates both balances correctly.
 
+#### Deferred tasks
+
+- **Dashboard period filter**: Add a dropdown selector to the dashboard page (above charts) allowing the user to pick a time period — at minimum: "Current month", "Previous month", "Last 3 months", "This year", "All time". The dropdown should pass the appropriate `month` / `year` query params to the `/api/dashboard/category-breakdown`, `/api/dashboard/summary`, and `/api/dashboard/spending` endpoints so charts and KPIs re-render for the selected period. Currently these endpoints default to the current calendar month, so categories or transactions dated in prior months are invisible.
+
 #### Post-Phase 3 bugfixes
 
 These fixes were applied in a follow-up session and are stable in the codebase:

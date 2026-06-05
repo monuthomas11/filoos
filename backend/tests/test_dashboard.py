@@ -9,10 +9,13 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.crud.account import create_account
+from app.crud.category import create_category
 from app.crud.transaction import create_transaction
 from app.models.account import AccountType
+from app.models.category import CategoryType
 from app.models.transaction import TransactionType
 from app.schemas.account import AccountCreate
+from app.schemas.category import CategoryCreate
 from app.services.analytics import (
     balance_history,
     category_breakdown,
@@ -105,6 +108,57 @@ def test_category_breakdown(db_session: Session):
     expense = next(b for b in breakdown if b["label"] == "Expense")
     assert income["amount"] == "5000.00"
     assert expense["amount"] == "2500.00"
+
+
+def test_category_breakdown_with_categories(db_session: Session):
+    """When transactions have categories, breakdown should group by category."""
+    _seed_account(db_session, "Acct", balance="1000")
+
+    food = create_category(db_session, CategoryCreate(name="Food", type=CategoryType.EXPENSE, color="#ff0000"))
+    rent = create_category(db_session, CategoryCreate(name="Rent", type=CategoryType.EXPENSE, color="#00ff00"))
+    salary = create_category(db_session, CategoryCreate(name="Salary", type=CategoryType.INCOME, color="#0000ff"))
+
+    create_transaction(db_session, account_id=1, amount=Decimal("5000"),
+                       type_=TransactionType.INCOME, description="Paycheck",
+                       date=datetime.date.today(), category_id=salary.id)
+    create_transaction(db_session, account_id=1, amount=Decimal("-2000"),
+                       type_=TransactionType.EXPENSE, description="Rent",
+                       date=datetime.date.today(), category_id=rent.id)
+    create_transaction(db_session, account_id=1, amount=Decimal("-500"),
+                       type_=TransactionType.EXPENSE, description="Groceries",
+                       date=datetime.date.today(), category_id=food.id)
+
+    breakdown = category_breakdown(db_session)
+    labels = {b["label"] for b in breakdown}
+    assert "Food" in labels
+    assert "Rent" in labels
+    assert "Salary" in labels
+    assert "Income" not in labels
+    assert "Expense" not in labels
+
+    food_b = next(b for b in breakdown if b["label"] == "Food")
+    assert food_b["amount"] == "500.00"
+    assert food_b["color"] == "#ff0000"
+
+
+def test_category_breakdown_mixed(db_session: Session):
+    """Categories with transactions + uncategorized transactions coexist."""
+    _seed_account(db_session, "Acct", balance="1000")
+
+    food = create_category(db_session, CategoryCreate(name="Food", type=CategoryType.EXPENSE, color="#ff0000"))
+
+    create_transaction(db_session, account_id=1, amount=Decimal("-300"),
+                       type_=TransactionType.EXPENSE, description="Groceries",
+                       date=datetime.date.today(), category_id=food.id)
+    create_transaction(db_session, account_id=1, amount=Decimal("-200"),
+                       type_=TransactionType.EXPENSE, description="Misc",
+                       date=datetime.date.today(), category_id=None)
+
+    breakdown = category_breakdown(db_session)
+    labels = {b["label"] for b in breakdown}
+    assert "Food" in labels
+    food_b = next(b for b in breakdown if b["label"] == "Food")
+    assert food_b["amount"] == "300.00"
 
 
 def test_balance_history(db_session: Session):

@@ -132,7 +132,7 @@ def category_breakdown(
             Category.color,
             func.coalesce(func.sum(func.abs(Transaction.amount)), 0),
         )
-        .outerjoin(Category, Transaction.category_id == Category.id)
+        .outerjoin(Transaction, Transaction.category_id == Category.id)
         .filter(
             Transaction.date >= start,
             Transaction.date < end,
@@ -150,7 +150,7 @@ def category_breakdown(
 
     if broken is not None:
         return [
-            {"label": name or "Uncategorized", "color": color or "#737373", "amount": str(amount)}
+            {"label": name or "Uncategorized", "color": color or "#737373", "amount": f"{float(amount):.2f}"}
             for name, color, amount in broken
             if amount > 0
         ]
