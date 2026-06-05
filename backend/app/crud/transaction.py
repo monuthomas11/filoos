@@ -49,7 +49,9 @@ def create_transaction(db: Session, account_id: int, amount: Decimal, type_: Tra
                        description: str, date: datetime.date,
                        notes: str | None = None,
                        transfer_pair_id: int | None = None,
-                       category_id: int | None = None) -> Transaction:
+                       category_id: int | None = None,
+                       recurring_rule_id: int | None = None,
+                       commit: bool = True) -> Transaction:
     tx = Transaction(
         account_id=account_id,
         amount=amount,
@@ -59,10 +61,12 @@ def create_transaction(db: Session, account_id: int, amount: Decimal, type_: Tra
         date=date,
         transfer_pair_id=transfer_pair_id,
         category_id=category_id,
+        recurring_rule_id=recurring_rule_id,
     )
     db.add(tx)
-    db.commit()
-    db.refresh(tx)
+    if commit:
+        db.commit()
+        db.refresh(tx)
     return tx
 
 

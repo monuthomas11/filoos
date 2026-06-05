@@ -69,12 +69,12 @@
 
     <!-- Active -->
     <div class="flex items-center gap-2">
+      <input type="hidden" name="is_active" value="false" />
       <input
         type="checkbox" id="is_active" name="is_active" value="true"
         {% if not budget or budget.is_active %}checked{% endif %}
         class="h-4 w-4 rounded border-neutral-300 text-accent-600 focus:ring-accent-500 dark:border-neutral-700"
       />
-      <input type="hidden" name="is_active" value="false" />
       <label for="is_active" class="text-sm text-neutral-700 dark:text-neutral-300">Active</label>
     </div>
 

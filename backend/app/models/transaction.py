@@ -6,7 +6,7 @@ import datetime
 import enum
 from decimal import Decimal
 
-from sqlalchemy import Date, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Date, ForeignKey, Numeric, String, Text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -46,8 +46,9 @@ class Transaction(Base, TimestampMixin):
         ForeignKey("transactions.id"), nullable=True
     )
     recurring_rule_id: Mapped[int | None] = mapped_column(
-        Integer, nullable=True
+        ForeignKey("recurring_rules.id"), nullable=True
     )
 
     account = relationship("Account")
     category = relationship("Category", back_populates="transactions")
+    recurring_rule = relationship("RecurringRule")

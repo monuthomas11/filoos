@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% set create = mode == "create" %}
+{% set rule_id = rule.id if rule else 0 %}
+{% set hx_method = "POST" if create else "PATCH" %}
+{% set form_action = "/recurring" if create else "/recurring/" + rule_id|string %}
+{% set page_title = "New recurring rule" if create else "Edit recurring rule" %}
+
+{% block content %}
+<div class="mx-auto max-w-lg">
+  <div class="mb-6">
+    <a href="/recurring" class="text-sm text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300">&larr; Back to recurring rules</a>
+  </div>
+
+  <h1 class="text-2xl font-semibold tracking-tight">{{ page_title }}</h1>
+
+  <form
+    id="recurring-form"
+    hx-{{ hx_method.lower() }}="{{ form_action }}"
+    class="mt-6 space-y-5"
+  >
+    <!-- Account -->
+    <div>
+      <label for="account_id" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Account</label>
+      <select id="account_id" name="account_id" required class="mt-1 block w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100">
+        <option value="">Select an account</option>
+        {% for acct in accounts %}
+        <option value="{{ acct.id }}" {% if rule and rule.account_id == acct.id %}selected{% endif %}>{{ acct.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Category -->
+    <div>
+      <label for="category_id" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Category <span class="text-neutral-400">(optional)</span></label>
+      <select id="category_id" name="category_id" class="mt-1 block w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100">
+        <option value="">No category</option>
+        {% for cat in categories %}
+        <option value="{{ cat.id }}" {% if rule and rule.category_id == cat.id %}selected{% endif %}>{{ cat.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Amount -->
+    <div>
+      <label for="amount" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Amount ({{ currency_symbol }})</label>
+      <input type="number" id="amount" name="amount" step="0.01" min="0.01" required value="{{ rule.amount|string if rule else '' }}" class="mt-1 block w-48 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100" placeholder="e.g. 50000" />
+    </div>
+
+    <!-- Type -->
+    <div>
+      <label for="type" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Type</label>
+      <select id="type" name="type" required class="mt-1 block w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100">
+        <option value="expense" {% if rule and rule.type == "expense" %}selected{% endif %}>Expense</option>
+        <option value="income" {% if rule and rule.type == "income" %}selected{% endif %}>Income</option>
+      </select>
+    </div>
+
+    <!-- Description -->
+    <div>
+      <label for="description" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Description</label>
+      <input type="text" id="description" name="description" required value="{{ rule.description if rule else '' }}" class="mt-1 block w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100" placeholder="e.g. Rent, Salary" />
+    </div>
+
+    <!-- Frequency -->
+    <div>
+      <label for="frequency" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Frequency</label>
+      <select id="frequency" name="frequency" required class="mt-1 block w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100">
+        <option value="daily" {% if rule and rule.frequency.value == "daily" %}selected{% endif %}>Daily</option>
+        <option value="weekly" {% if rule and rule.frequency.value == "weekly" %}selected{% endif %}>Weekly</option>
+        <option value="monthly" {% if rule and rule.frequency.value == "monthly" %}selected{% endif %}>Monthly</option>
+        <option value="yearly" {% if rule and rule.frequency.value == "yearly" %}selected{% endif %}>Yearly</option>
+      </select>
+    </div>
+
+    <!-- Interval -->
+    <div>
+      <label for="interval" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Every N periods</label>
+      <input type="number" id="interval" name="interval" min="1" value="{{ rule.interval if rule else 1 }}" class="mt-1 block w-24 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100" />
+    </div>
+
+    <!-- Start date -->
+    <div>
+      <label for="start_date" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Start date</label>
+      <input type="date" id="start_date" name="start_date" required value="{{ rule.start_date.isoformat() if rule else today }}" class="mt-1 block w-48 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100" />
+    </div>
+
+    <!-- End date -->
+    <div>
+      <label for="end_date" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">End date <span class="text-neutral-400">(optional)</span></label>
+      <input type="date" id="end_date" name="end_date" value="{{ rule.end_date.isoformat() if rule and rule.end_date else '' }}" class="mt-1 block w-48 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100" />
+    </div>
+
+    <!-- Day of month (only for monthly) -->
+    <div id="day-of-month-group" {% if not rule or rule.frequency.value != "monthly" %}class="hidden"{% endif %}>
+      <label for="day_of_month" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Day of month <span class="text-neutral-400">(1-31)</span></label>
+      <input type="number" id="day_of_month" name="day_of_month" min="1" max="31" value="{{ rule.day_of_month if rule else '' }}" class="mt-1 block w-24 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100" />
+    </div>
+
+    <!-- Day of week (only for weekly) -->
+    <div id="day-of-week-group" {% if not rule or rule.frequency.value != "weekly" %}class="hidden"{% endif %}>
+      <label for="day_of_week" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Day of week</label>
+      <select id="day_of_week" name="day_of_week" class="mt-1 block w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100">
+        <option value="">--</option>
+        <option value="0" {% if rule and rule.day_of_week == 0 %}selected{% endif %}>Monday</option>
+        <option value="1" {% if rule and rule.day_of_week == 1 %}selected{% endif %}>Tuesday</option>
+        <option value="2" {% if rule and rule.day_of_week == 2 %}selected{% endif %}>Wednesday</option>
+        <option value="3" {% if rule and rule.day_of_week == 3 %}selected{% endif %}>Thursday</option>
+        <option value="4" {% if rule and rule.day_of_week == 4 %}selected{% endif %}>Friday</option>
+        <option value="5" {% if rule and rule.day_of_week == 5 %}selected{% endif %}>Saturday</option>
+        <option value="6" {% if rule and rule.day_of_week == 6 %}selected{% endif %}>Sunday</option>
+      </select>
+    </div>
+
+    <!-- Active -->
+    <div class="flex items-center gap-2">
+      <input type="hidden" name="is_active" value="false" />
+      <input type="checkbox" id="is_active" name="is_active" value="true" {% if not rule or rule.is_active %}checked{% endif %} class="h-4 w-4 rounded border-neutral-300 text-accent-600 focus:ring-accent-500 dark:border-neutral-700" />
+      <label for="is_active" class="text-sm text-neutral-700 dark:text-neutral-300">Active</label>
+    </div>
+
+    <div class="flex items-center gap-3 pt-2">
+      <button type="submit" class="rounded-lg bg-accent-600 px-5 py-2 text-sm font-medium text-white hover:bg-accent-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600">
+        {{ "Create rule" if create else "Save changes" }}
+      </button>
+      <a href="/recurring" class="text-sm text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const freqSelect = document.getElementById('frequency');
+    const domGroup = document.getElementById('day-of-month-group');
+    const dowGroup = document.getElementById('day-of-week-group');
+
+    function toggleFields() {
+      const val = freqSelect.value;
+      domGroup.classList.toggle('hidden', val !== 'monthly');
+      dowGroup.classList.toggle('hidden', val !== 'weekly');
+    }
+
+    freqSelect.addEventListener('change', toggleFields);
+  });
+</script>
+{% endblock %}

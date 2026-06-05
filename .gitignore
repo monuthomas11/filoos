@@ -43,3 +43,4 @@ Thumbs.db
 *.log
 logs/
 backend/app/app.db
+PLAN.Trans.MD

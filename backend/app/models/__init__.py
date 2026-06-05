@@ -32,5 +32,8 @@ from app.models.account import Account  # noqa: E402, F401
 from app.models.budget import Budget, BudgetPeriod  # noqa: E402, F401
 from app.models.category import Category, CategoryType  # noqa: E402, F401
 
+# Phase 6
+from app.models.recurring import RecurringFrequency, RecurringRule  # noqa: E402, F401
+
 # Phase 3
 from app.models.transaction import Transaction, TransactionType  # noqa: E402, F401
