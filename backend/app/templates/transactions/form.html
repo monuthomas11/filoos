@@ -20,6 +20,7 @@
     hx-on::before-request="return validateTransferForm()"
     class="mt-6 space-y-5"
   >
+    <input type="hidden" name="next" value="{{ next_url or '/transactions' }}" />
     <!-- Validation error message -->
     <div id="form-error" class="hidden rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-400"></div>
     <!-- Type -->
@@ -140,7 +141,7 @@
       >
         {{ "Add transaction" if create else "Save changes" }}
       </button>
-      <a href="/transactions" class="text-sm text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300">Cancel</a>
+      <a href="{{ next_url or '/transactions' }}" class="text-sm text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300">Cancel</a>
     </div>
   </form>
 </div>

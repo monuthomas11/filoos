@@ -686,3 +686,111 @@ def test_delete_transfer_via_htmx(client: TestClient):
     # Verify both legs are deleted
     remaining = client.get("/api/transactions").json()
     assert len(remaining) == 0
+
+
+# ------------------------------------------------------------------
+# Quick-add redirect (Phase 4.1) — dashboard CTA + next-param threading
+# ------------------------------------------------------------------
+
+
+def test_dashboard_has_add_transaction_button(client: TestClient):
+    """The dashboard must contain a primary CTA linking to /transactions/new."""
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "/transactions/new" in r.text
+    assert "Add transaction" in r.text
+
+
+def test_dashboard_button_passes_from_query_param(client: TestClient):
+    """The dashboard CTA must include ?from=/ so the form knows the entry point."""
+    r = client.get("/")
+    assert r.status_code == 200
+    # Find the link to the create form and verify it carries ?from=/
+    assert 'href="/transactions/new?from=/"' in r.text
+
+
+def test_create_form_renders_next_hidden_input(client: TestClient):
+    """GET /transactions/new?from=/ must render a hidden next input set to '/'."""
+    r = client.get("/transactions/new", params={"from": "/"})
+    assert r.status_code == 200
+    assert 'name="next" value="/"' in r.text
+
+
+def test_create_form_default_next_is_transactions(client: TestClient):
+    """GET /transactions/new (no from param) must default next to /transactions."""
+    r = client.get("/transactions/new")
+    assert r.status_code == 200
+    assert 'name="next" value="/transactions"' in r.text
+
+
+def test_create_via_htmx_with_next_returns_custom_redirect(client: TestClient, db_session: Session):
+    """POST /transactions with next=/ and a valid payload must return HX-Redirect: /."""
+    acc = _seed_account(db_session, "Test Account", AccountType.CASH, "0")
+    db_session.commit()
+
+    r = client.post(
+        "/transactions",
+        data={
+            "type": "expense",
+            "account_id": str(acc.id),
+            "amount": "10.00",
+            "description": "Coffee",
+            "date": "2026-06-05",
+            "next": "/",
+        },
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    assert r.headers.get("HX-Redirect") == "/"
+
+
+def test_create_via_htmx_without_next_falls_back_to_transactions(client: TestClient, db_session: Session):
+    """POST /transactions with no next field must fall back to HX-Redirect: /transactions."""
+    acc = _seed_account(db_session, "Test Account 2", AccountType.CASH, "0")
+    db_session.commit()
+
+    r = client.post(
+        "/transactions",
+        data={
+            "type": "expense",
+            "account_id": str(acc.id),
+            "amount": "5.00",
+            "description": "Tea",
+            "date": "2026-06-05",
+        },
+        headers={"HX-Request": "true"},
+    )
+    assert r.status_code == 200
+    assert r.headers.get("HX-Redirect") == "/transactions"
+
+
+def test_create_via_htmx_rejects_unsafe_next(client: TestClient, db_session: Session):
+    """POST /transactions with a non-local next value must fall back to /transactions."""
+    acc = _seed_account(db_session, "Test Account 3", AccountType.CASH, "0")
+    db_session.commit()
+
+    for bad in ("//evil.com/x", "http://evil.com", "javascript:alert(1)"):
+        r = client.post(
+            "/transactions",
+            data={
+                "type": "expense",
+                "account_id": str(acc.id),
+                "amount": "1.00",
+                "description": "X",
+                "date": "2026-06-05",
+                "next": bad,
+            },
+            headers={"HX-Request": "true"},
+        )
+        assert r.status_code == 200, f"Bad next={bad!r} returned {r.status_code}"
+        assert r.headers.get("HX-Redirect") == "/transactions", (
+            f"Bad next={bad!r} should fall back to /transactions"
+        )
+
+
+def test_cancel_link_follows_next(client: TestClient):
+    """The Cancel link on the create form must point to next_url when provided."""
+    r = client.get("/transactions/new", params={"from": "/"})
+    assert r.status_code == 200
+    # The Cancel link should be '/' when next is '/'
+    assert 'href="/"' in r.text

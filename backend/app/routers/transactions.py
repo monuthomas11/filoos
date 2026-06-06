@@ -36,6 +36,15 @@ def _get_amount_sign(type_: TransactionType) -> int:
     return -1 if type_ == TransactionType.EXPENSE else 1
 
 
+def _safe_next(value: str | None) -> str | None:
+    """Validate a `next` redirect target. Allow only same-origin absolute paths."""
+    if not value or not isinstance(value, str):
+        return None
+    if not value.startswith("/") or value.startswith("//"):
+        return None
+    return value
+
+
 # ------------------------------------------------------------------
 # Helpers
 # ------------------------------------------------------------------
@@ -150,6 +159,7 @@ async def transaction_list_page(
 @router.get("/transactions/new", response_class=HTMLResponse)
 async def transaction_create_page(
     request: Request,
+    from_: str | None = Query(None, alias="from"),
     db: Session = Depends(get_db),
 ):
     accounts = list_accounts(db)
@@ -164,6 +174,7 @@ async def transaction_create_page(
             "accounts": accounts,
             "categories": categories,
             "today": datetime.date.today().isoformat(),
+            "next_url": _safe_next(from_),
         },
     )
 
@@ -174,6 +185,7 @@ async def transaction_edit_page(
     transaction_id: int,
     db: Session = Depends(get_db),
 ):
+    # TODO: support `next` param like the create page does (Phase 4.1 scope excluded edits)
     tx = get_transaction(db, transaction_id)
     if tx is None:
         return HTMLResponse("Transaction not found", status_code=404)
@@ -227,6 +239,7 @@ async def transaction_create(
     category_id: int | None = Form(None),
     from_account_id: int | None = Form(None),
     to_account_id: int | None = Form(None),
+    next: str | None = Form(None),
     db: Session = Depends(get_db),
 ):
     try:
@@ -287,7 +300,8 @@ async def transaction_create(
         )
 
     if is_htmx(request):
-        return Response(status_code=200, headers={"HX-Redirect": "/transactions"})
+        redirect_target = _safe_next(next) or "/transactions"
+        return Response(status_code=200, headers={"HX-Redirect": redirect_target})
     return TransactionRead.model_validate(tx)
 
 
@@ -306,6 +320,7 @@ async def transaction_update(
     to_account_id: int | None = Form(None),
     db: Session = Depends(get_db),
 ):
+    # TODO: accept `next` form field and use `_safe_next` for redirect (Phase 4.1 scope excluded edits)
     existing = get_transaction(db, transaction_id)
     if existing is None:
         return HTMLResponse("Transaction not found", status_code=404)

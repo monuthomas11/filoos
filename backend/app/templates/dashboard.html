@@ -2,11 +2,20 @@
 
 {% block content %}
 <section class="space-y-6">
-  <div>
-    <h1 class="text-2xl font-semibold tracking-tight">Dashboard</h1>
-    <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
-      Welcome to {{ app_name }}.
-    </p>
+  <div class="flex items-center justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-semibold tracking-tight">Dashboard</h1>
+      <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+        Welcome to {{ app_name }}.
+      </p>
+    </div>
+    <a
+      href="/transactions/new?from=/"
+      class="inline-flex items-center gap-1.5 rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-accent-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+      Add transaction
+    </a>
   </div>
 
   <!-- KPI row -->

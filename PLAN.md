@@ -317,6 +317,7 @@ projected_balance(t) = current_balance
 | 2 | **Accounts** | `Account` model + migration, CRUD pages, HTMX form partials, validation, color/icon per account | Create cash + bank + credit card; balances on placeholder dashboard |
 | 3 | **Transactions** | **done** | Ledger, transfers, filterable list, 29 tests |
 | 4 | **Dashboard v1** | **done** | `services/analytics.py`, `/api/dashboard/*`, real Chart.js charts (daily-spend bar, category donut), monthly KPI cards, 16 tests |
+| 4.1 | **Quick-add (redirect)** | Primary `+ Add transaction` button on the dashboard linking to `/transactions/new`; form's `next` query param threaded through so a successful create redirects back to `/` if invoked from the dashboard | Click button on dashboard, submit form, land back on dashboard with refreshed data |
 | 5 | **Categories & Budgets** | **done** | `Category`, `Budget` models + migrations, CRUD, budget progress bars, 45 new tests |
 | 5 | **Categories & Budgets** | **done** | `Category`, `Budget` models + migrations, CRUD pages, budget progress bars on dashboard, 45 new tests |
 | 6 | **Recurring rules** | `RecurringRule` model + migration, `services/recurring.py` materializer, auto-run on startup, "next 5 occurrences" preview | Mark salary as monthly; see it auto-appear on the 1st |
@@ -371,6 +372,7 @@ In all cases, the deploy artifact is a small `Dockerfile` (to be added in Phase 
 - **Multi-currency**: per-account `currency` is already in the schema; just add an FX rate cache and conversion in the analytics layer.
 - **Import / receipts**: `attachments` table; HTMX file upload is trivial with the existing stack.
 - **Production CSS**: switch from Tailwind Play CDN to a compiled `app.css` via the Tailwind standalone CLI or a one-shot build script.
+- **Quick-add transaction modal on the dashboard** — currently the dashboard links to the full `/transactions/new` page. A future enhancement would add an Alpine.js modal that lazy-loads the form via `hx-get="/transactions/new?partial=1"`, submits in place, and refreshes dashboard widgets (KPIs, charts, account balances, recent transactions) via HTMX partial swaps. The form would be extracted into `partials/transaction_form.html` so the same partial is reused by the modal and the full create page.
 
 ## 13. Open Considerations
 
@@ -445,6 +447,23 @@ Verified:
 - `GET /api/dashboard/spending?range=7` returns 7 daily entries with proper amounts.
 - Dashboard page renders canvas elements with `id="spending-chart"` and `id="category-chart"`.
 - KPI cards show real data after client-side fetch completes.
+
+### Phase 4.1 — Quick-add transaction (redirect) (complete)
+
+Shipped:
+- `backend/app/templates/dashboard.html` — primary `+ Add transaction` button in the page header; links to `/transactions/new?from=/`.
+- `backend/app/routers/transactions.py` — `GET /transactions/new` accepts optional `?from=<path>`; `POST /transactions` accepts a `next` form field and returns `HX-Redirect: <next>` for safe local paths (falls back to `/transactions` on missing/invalid input). New `_safe_next` helper enforces same-origin policy (rejects `//evil.com`, `http://...`, `javascript:`).
+- `backend/app/templates/transactions/form.html` — hidden `next` input; "Cancel" link now respects `next_url`.
+- `backend/tests/test_transactions.py` — 7 new tests (button presence, `?from=/` query param, hidden `next` input, default value, custom redirect, fallback redirect, open-redirect guard).
+
+Verified:
+- `pytest -q` → **141 passed** (134 + 7 new).
+- Dashboard renders a primary CTA linking to `/transactions/new?from=/`.
+- `GET /transactions/new?from=/` then POST → browser lands on `/` after save.
+- Open-redirect attempts (`//evil.com`, `http://evil.com`, `javascript:alert(1)`) are rejected and fall back to `/transactions`.
+- ruff clean.
+
+Future enhancement (deferred): quick-add modal — see §12.
 
 ### Phase 5 — Categories & Budgets (complete)
 
