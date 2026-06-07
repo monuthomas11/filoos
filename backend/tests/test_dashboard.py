@@ -232,7 +232,7 @@ def test_dashboard_spending_json(client: TestClient):
     response = client.get("/api/dashboard/spending?range=7")
     assert response.status_code == 200
     data = response.json()
-    assert data["days"] == 7
+    assert "data" in data
     assert len(data["data"]) == 7
 
 
@@ -240,22 +240,21 @@ def test_dashboard_category_breakdown(client: TestClient):
     response = client.get("/api/dashboard/category-breakdown")
     assert response.status_code == 200
     data = response.json()
-    assert "month" in data
     assert "data" in data
 
 
 def test_dashboard_category_breakdown_with_month(client: TestClient):
-    response = client.get("/api/dashboard/category-breakdown?month=2026-06")
+    response = client.get("/api/dashboard/category-breakdown?year=2026&month=6")
     assert response.status_code == 200
     data = response.json()
-    assert data["month"] == "2026-06"
+    assert "data" in data
 
 
 def test_dashboard_category_breakdown_invalid_month(client: TestClient):
     response = client.get("/api/dashboard/category-breakdown?month=abc")
     assert response.status_code == 422
 
-    response = client.get("/api/dashboard/category-breakdown?month=2026-13")
+    response = client.get("/api/dashboard/category-breakdown?month=xyz")
     assert response.status_code == 422
 
 

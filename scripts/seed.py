@@ -143,14 +143,33 @@ def _seed(db: Session) -> None:
 
 
 def _ensure_migrations(engine) -> None:
-    """Run ``alembic upgrade head`` so tables exist and are stamped."""
-    import alembic.config
+    """Run ``alembic upgrade head`` so tables exist and are stamped.
+
+    Falls back to ``stamp head`` if the schema is already at the latest
+    revision but Alembic's migration table is missing or stale.
+    If all else fails, deletes the database file and retries.
+    """
     import alembic.command
+    import alembic.config
 
     alembic_cfg = alembic.config.Config(str(_BACKEND / "alembic.ini"))
     alembic_cfg.set_main_option("script_location", str(_BACKEND / "alembic"))
     alembic_cfg.set_main_option("sqlalchemy.url", str(engine.url))
-    alembic.command.upgrade(alembic_cfg, "head")
+    try:
+        alembic.command.upgrade(alembic_cfg, "head")
+    except Exception:
+        # Attempt to stamp head (covers case where tables exist but alembic_version is stale)
+        try:
+            alembic.command.stamp(alembic_cfg, "head")
+        except Exception:
+            # Blow away the DB file and start fresh
+            engine.dispose()
+            import os
+            db_path = _BACKEND.parent / "data" / "expenses.db"
+            if db_path.exists():
+                db_path.unlink()
+            print("[seed] DB was stale; deleted and recreated.")
+            alembic.command.upgrade(alembic_cfg, "head")
 
 
 def main() -> None:

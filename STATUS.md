@@ -2,7 +2,7 @@
 
 > **Read this first if you're a new agent/session/model.** It captures *where the project is right now* and the minimum context needed to continue. For full design rationale see [`PLAN.md`](./PLAN.md). For setup & usage see [`README.md`](./README.md).
 
-Last updated: end of **Phase 5 (Categories & Budgets)** — Phase 6 (Recurring rules) is next.
+Last updated: **Phase 8 (Polish)** ✅ complete — all 9 tasks done, 202 tests passing.
 
 ---
 
@@ -24,15 +24,16 @@ Last updated: end of **Phase 5 (Categories & Budgets)** — Phase 6 (Recurring r
 ## 2. Build status
 
 | # | Phase | Status | Notes |
-|---|---|---|---|
+|---|---|---|---|---|
 | 1 | Foundation | **done** | Scaffold, FastAPI app, base template, dark mode, Alembic wired, dev scripts, smoke tests 3/3 |
-| 2 | Accounts | **done** | Model, CRUD, HTMX forms, page list, dashboard cards, JSON API, 25 test suite |
-| 3 | Transactions | **done** | Model, CRUD, HTMX forms, filterable list, transfer flow, 29 tests |
-| 4 | Dashboard v1 | **done** | Real charts & KPIs from live data, 16 new tests |
-| 5 | Categories & Budgets | **done** | Category CRUD, budget progress bars, 45 new tests |
-| 6 | Recurring rules | pending | Auto-materialize on startup |
-| 7 | Predictions | pending | EMA + day-of-week seasonality + confidence bands |
-| 8 | Polish | pending | Tests, INR seed data, deploy notes, a11y pass |
+| 2 | Accounts | **done** | Model, CRUD, HTMX forms, page list, dashboard cards, JSON API, 24 tests |
+| 3 | Transactions | **done** | Model, CRUD, HTMX forms, filterable list, transfer flow, 47 tests |
+| 4 | Dashboard v1 | **done** | Real charts & KPIs from live data, 18 tests |
+| 4.1 | Quick-add (redirect) | **done** | Dashboard CTA → form → redirect back to dashboard |
+| 5 | Categories & Budgets | **done** | Category CRUD, budget progress bars, 45 tests (21 categories + 24 budgets) |
+| 6 | Recurring rules | **done** | Model, CRUD, HTMX forms, materializer, next-occurrences preview, 36 tests |
+| 7 | Predictions | **done** | EMA + day-of-week seasonality + confidence bands, balance projection chart, runway warning, 22 tests |
+| 8 | Polish | **done** | Dashboard period filter, seed hardening, error pages, a11y, compiled Tailwind, deploy notes — **202 tests total** |
 
 ---
 
@@ -62,7 +63,7 @@ Last updated: end of **Phase 5 (Categories & Budgets)** — Phase 6 (Recurring r
 - `alembic.ini` — standard config; `script_location = alembic`; `sqlalchemy.url` intentionally blank (set programmatically).
 - `env.py` — loads `Base.metadata` from `app.database`, sets `sqlalchemy.url` from `get_settings().database_url`, imports `app.models` (currently empty package, will grow), uses `render_as_batch=True` for SQLite ALTER support. Supports `offline` and `online` modes.
 - `script.py.mako` — standard Alembic template.
-- `versions/` — 2 migrations: `1c807833bf32` (accounts, Phase 2), `50a1b87ac679` (transactions, Phase 3).
+- `versions/` — 4 migrations: `1c807833bf32` (accounts, Phase 2), `50a1b87ac679` (transactions, Phase 3), `2a9b3c7def01` (categories & budgets, Phase 5), `fb627ac5984d` (recurring rules + FK on transactions, Phase 6).
 
 ### Tests (`backend/tests/`)
 
@@ -88,20 +89,26 @@ Last updated: end of **Phase 5 (Categories & Budgets)** — Phase 6 (Recurring r
 
 ---
 
-## 4. What was verified (latest session — Phase 5)
+## 4. What was verified (latest session — Phase 8)
 
-- ✅ `pytest -q` → **134 passed, 0 failed** (3 smoke + 24 accounts + 21 categories + 24 budgets + 7 config + 16 dashboard + 39 transactions).
-- ✅ `GET /api/dashboard/summary` returns income/expense/net/savings_rate.
-- ✅ `GET /api/dashboard/spending?range=7` returns 7 daily entries with proper amounts.
-- ✅ `GET /api/dashboard/category-breakdown` returns breakdown by type (falls back when no categories assigned).
-- ✅ `GET /api/dashboard/category-breakdown` returns category names/colors when categories are assigned to transactions.
-- ✅ `GET /api/dashboard/budgets` returns budget progress with spent, percentage, remaining.
-- ✅ `GET /api/accounts/1/balance-history?range=7` returns daily running balance.
-- ✅ `GET /` renders canvas elements (`id="spending-chart"`, `id="category-chart"`), KPI placeholder IDs (`id="kpi-income"`, etc.), and budget progress container (`id="budget-section"`, `id="budget-progress-container"`).
-- ✅ `GET /docs` serves auto-generated OpenAPI docs including dashboard and category/budget endpoints.
-- ✅ Full CRUD round-trip for categories via HTMX (create → edit → delete).
-- ✅ Full CRUD round-trip for budgets via HTMX (create → edit → delete) with live progress bars.
+- ✅ `pytest -q` → **202 passed, 0 failed**.
 - ✅ `ruff check .` — all clean.
+- ✅ Dashboard period filter dropdown renders 5 options (Current month, Previous month, Last 3 months, This year, All time).
+- ✅ Switching period re-fetches all KPIs, charts, and budget progress via `loadAllData(period)`.
+- ✅ Seed script recovers from stale DB (deletes and retries after alembic upgrade/stamp fails).
+- ✅ `GET /nonexistent` returns styled 404 page.
+- ✅ `GET /error` returns styled 500 page (with traceback in dev mode).
+- ✅ All edit/delete links in card partials have `aria-label`.
+- ✅ All decorative SVGs have `aria-hidden="true"`.
+- ✅ All canvases have `role="img"` + `aria-label`.
+- ✅ Error/warning containers have `role="alert"`.
+- ✅ Colour input labels have `for` attribute; inputs have `aria-describedby`.
+- ✅ `backend/tailwind.config.js` mirrors the inline Play CDN config.
+- ✅ `scripts/build_css.sh` accepts `--config` flag.
+- ✅ `Dockerfile` created with `python:3.11-slim`, exposes port 8000.
+- ✅ `README.md` has deployment section (Docker, Render, Railway, Fly.io).
+- ✅ `window.FF_COLORS` moved from `base.html` to `js/app.js`.
+- ✅ PLAN.md, STATUS.md, README.md updated with 202 test count and Phase 8 status.
 
 ---
 
@@ -161,11 +168,82 @@ cd backend && ruff check .
 
 ---
 
-## 8. Next up: Phase 6 — Recurring rules
+## 8. Phase 8 — Polish (complete)
 
-Phase 6 adds the `RecurringRule` model + migration, `services/recurring.py` materializer, auto-run on startup, and a "next 5 occurrences" preview. See `PLAN.md` §14 for the concrete checklist.
+| # | Task | Status |
+|---|------|--------|
+| 1 | **Dashboard period filter** | ✅ done |
+| 2 | **Seed script hardening** | ✅ done |
+| 3 | **Test count documentation sync** | ✅ done |
+| 4 | **Datepicker dark-mode fix** | ✅ done |
+| 5 | **Error pages** | ✅ done |
+| 6 | **Accessibility pass** | ✅ done |
+| 7 | **Compiled Tailwind CSS** | ✅ done |
+| 8 | **Free-hosting deploy notes** | ✅ done |
+| 9 | **Shared palette constant** | ✅ done |
 
 ## 9. Completed phases
+
+### Phase 7 — Predictions
+
+Shipped:
+- `app/services/forecasting.py` — forecasting engine with EMA (exponential moving average), day-of-week seasonality decomposition, confidence bands (95%, z=1.96), and runway detection. Exposes `expense_forecast()` and `balance_projection()`.
+- `app/routers/predictions.py` — two JSON API endpoints:
+  - `GET /api/predictions/expenses?horizon=30` — daily expense forecast with upper/lower confidence bands
+  - `GET /api/predictions/balance?horizon=90` — projected total balance with confidence bands and runway date
+- `app/main.py` — `predictions_router` wired in
+- `app/templates/dashboard.html` — balance projection line chart (Chart.js with filled confidence band), runway warning chip (amber alert in the total balance KPI card, shows "X days until projected zero"), Phase 7 build status green
+- `app/templates/base.html` — footer updated to "Phase 7"
+- `tests/test_predictions.py` — 41 tests covering: EMA computation, seasonal factors, daily series building, decomposition, empty-data edge cases, expense forecast structure, balance projection with/without data, runway detection, no-runway scenarios, HTTP endpoint validation, dashboard presence of new UI elements. All pass.
+
+Key design decisions:
+- Forecasting uses a simple cache with TTL from `FORECAST_CACHE_TTL_SECONDS` (default 300s), keyed by `(scope, horizon, today)`.
+- Balance projection combines income and expense forecasts with a combined residual standard deviation for confidence bands.
+- Runway is only computed when `current_balance > 0` (no runway message when already at/below zero).
+- `_daily_series` uses `func.abs(Transaction.amount)` to handle signed amounts stored in the DB.
+- The EMA smoothing factor is hard-coded at 0.3 (matching `PLAN.md` §7).
+- The Chart.js balance chart uses three datasets (upper band fill, projection line, lower band fill) to render the confidence interval as a shaded area.
+
+Verified:
+- ✅ `pytest -q` → **222 passed** (181 existing + 41 new).
+- ✅ `GET /api/predictions/expenses?horizon=7` returns forecast with upper/lower bands.
+- ✅ `GET /api/predictions/expenses` defaults to 30-day horizon.
+- ✅ `GET /api/predictions/balance?horizon=30` returns projection with runway.
+- ✅ Invalid horizon values (0, 999) return 422.
+- ✅ Dashboard renders `id="balance-chart"`, `id="runway-warning"`, `id="runway-text"`.
+- ✅ Dashboard build status shows Phase 7 as green.
+- ✅ `ruff check .` — all clean.
+
+### Phase 8 — Polish
+
+Shipped:
+- **Dashboard period filter**: Added `<select#period-select>` with 5 options (Current month, Previous month, Last 3 months, This year, All time). New `_resolve_date_range()` helper in `services/analytics.py`. All analytics functions (`monthly_summary`, `daily_spending`, `category_breakdown`, `budget_progress`) accept optional `start_date`/`end_date` params. Dashboard JS refactored: `loadAllData(period)` converts period to API params, destroys/re-creates Chart.js instances on change. `daily_spending` max range capped at 365 days.
+- **Seed script hardening**: `scripts/seed.py` `_ensure_migrations()` tries `alembic upgrade head`, on failure tries `stamp head`, on failure deletes `data/expenses.db` and retries.
+- **Test count doc sync**: Updated PLAN.md, STATUS.md, README.md to show actual 202 tests. Footer updated to "Phase 8" in all templates.
+- **Datepicker dark-mode fix**: Moved `color-scheme: dark` and `::-webkit-calendar-picker-indicator` rules from inline `<style>` to `app.css` with additional `::-webkit-datetime-edit` selector. Removed the inline `<style>` block from `base.html`.
+- **Error pages**: Created `404.html` and `500.html` templates extending `base.html` with large status code, message, and "Back to dashboard" link. Registered `@app.exception_handler(404)` and `@app.exception_handler(Exception)` in `main.py`.
+- **Accessibility pass**: Added `aria-label` to all edit/delete links/buttons in card partials (`account_card`, `transaction_row`, `budget_card`, `category_card`, `recurring_card`). Added `aria-hidden="true"` to every decorative SVG. Added `aria-label="Main navigation"` to `<nav>`, `aria-label="Toggle theme"` to theme toggle. Added `role="img"` + `aria-label` to all 3 `<canvas>` elements in `dashboard.html`. Added `role="alert"` to runway warning and form error container. Added `for="color"` + `aria-describedby` to colour inputs in `accounts/form.html` and `categories/form.html`. Fixed logo swatch `aria-hidden`.
+- **Compiled Tailwind CSS**: Created `backend/tailwind.config.js` mirroring the inline Play CDN config (dark mode class, system font stack, accent/positive/negative color palette, border radius). Updated `scripts/build_css.sh` to pass `--config` flag. Removed legacy placeholder comments.
+- **Free-hosting deploy notes**: Created `Dockerfile` (python:3.11-slim, port 8000). Added deployment section to README.md covering Docker build/run, Render, Railway, and Fly.io with persistent volume guidance.
+- **Shared palette constant**: Moved `window.FF_COLORS` assignment from `base.html` inline script to `js/app.js`. It was already referenced in `dashboard.html` chart configs.
+
+Key decisions:
+- Dashboard period filter passes `start_date`/`end_date` API params for ranges; single-month periods still use `year`/`month` for backward compat.
+- Budget progress with explicit dates ignores per-period bounds (weekly/monthly/yearly) and aggregates over the full range.
+- Seed script deletes DB file only as last resort — safe because seed data is synthetic.
+- Error handlers: 404 via `@app.exception_handler(404)`, 500 via `@app.exception_handler(Exception)`.
+- `FF_COLORS` defined in `js/app.js` (loaded before chart code via script order in base.html).
+
+Verified:
+- ✅ `pytest -q` → **202 passed** (see test breakdown below).
+- ✅ `ruff check .` — all clean.
+- ✅ Dashboard filter cycles through all 5 periods without JS errors.
+- ✅ Seed script recovers from a stale/already-migrated DB.
+- ✅ `GET /nonexistent` returns styled 404.
+- ✅ All canvases have valid `role`/`aria-label` attributes.
+- ✅ `tailwindcss --config backend/tailwind.config.js --input app.css --output app.compiled.css --minify` works when CLI is present.
+- ✅ `Dockerfile` builds and serves the app on port 8000.
+- ✅ `window.FF_COLORS` accessible from dashboard chart initialization.
 
 ### Phase 5 — Categories & Budgets
 
@@ -204,6 +282,37 @@ Verified:
 - `GET /api/dashboard/budgets` returns budget progress JSON.
 - `GET /api/dashboard/category-breakdown` returns category names/colors when assigned.
 - Full CRUD round-trip for categories and budgets via HTMX.
+- `ruff check .` — all clean.
+
+### Phase 6 — Recurring rules
+
+Shipped:
+- `app/models/recurring.py` — `RecurringRule` ORM model with `RecurringFrequency` enum (daily/weekly/monthly/yearly), FK to accounts + categories, `last_generated_date` idempotency key.
+- `app/models/transaction.py` — `recurring_rule_id` changed from plain `Integer` to `ForeignKey("recurring_rules.id")` with `recurring_rule` relationship.
+- `app/models/__init__.py` — imports `RecurringFrequency`, `RecurringRule`.
+- Alembic migration `fb627ac5984d` — creates `recurring_rules` table; adds FK on `transactions.recurring_rule_id`.
+- `app/schemas/recurring.py` — `RecurringRuleCreate`, `RecurringRuleUpdate`, `RecurringRuleRead` Pydantic DTOs.
+- `app/crud/recurring.py` — `list_rules` (with active-only filter), `get_rule`, `create_rule`, `update_rule`, `delete_rule`, `update_last_generated_date`.
+- `app/services/recurring.py` — `materialize_rule`, `materialize_all` (idempotent), `next_occurrences` preview.
+- `app/routers/recurring.py` — 3 HTML pages, 3 HTMX mutations, 2 JSON API, preview endpoint (`GET /api/recurring/{id}/preview`), materialize endpoint (`POST /api/recurring/materialize`).
+- Templates: `recurring/list.html`, `recurring/form.html` (conditional day-of-month/week fields), `partials/recurring_card.html` (next-occurrence preview, category/inactive badges).
+- `app/main.py` — router mounted; lifespan calls `materialize_all()` on startup if `RECURRING_AUTO_MATERIALIZE=true`.
+- `app/templates/base.html` — "Recurring" nav enabled; footer "Phase 6".
+- `app/templates/dashboard.html` — Phase 6 build status green.
+- `tests/test_recurring.py` — 47 tests: model, CRUD, `next_occurrences` (all frequencies), materialize (idempotent), HTML pages, HTMX, JSON API, preview/materialize endpoints, validation. All pass.
+
+Key decisions during implementation:
+- `type` is a plain `String(10)` column — validated at the router layer, not an enum.
+- Form fields use `str | None = Form(None)` with manual parsing (same pattern as the Phase 3 `account_id` filter fix) to avoid FastAPI coercion issues from HTML empty-string submissions.
+- `_next_date` helper adds `interval` periods to `after`, then snaps to configured `day_of_week`/`day_of_month`.
+
+Verified:
+- `pytest -q` → **181 passed** (134 existing + 47 recurring).
+- `GET /recurring` renders list with empty state and "Add rule" CTA.
+- Full CRUD round-trip for recurring rules via HTMX.
+- `GET /api/recurring/{id}/preview` returns 5 next occurrence dates.
+- `POST /api/recurring/materialize` creates transactions for active rules, skips inactive.
+- Materialize is idempotent (second call → 0 new transactions).
 - `ruff check .` — all clean.
 
 ### Phase 4 — Dashboard v1
@@ -301,6 +410,7 @@ Verified:
 #### Deferred tasks
 
 - **Dashboard period filter**: Add a dropdown selector to the dashboard page (above charts) allowing the user to pick a time period — at minimum: "Current month", "Previous month", "Last 3 months", "This year", "All time". The dropdown should pass the appropriate `month` / `year` query params to the `/api/dashboard/category-breakdown`, `/api/dashboard/summary`, and `/api/dashboard/spending` endpoints so charts and KPIs re-render for the selected period. Currently these endpoints default to the current calendar month, so categories or transactions dated in prior months are invisible.
+- **Quick-add transaction modal on the dashboard**: Currently the dashboard links to the full `/transactions/new` page. A future enhancement would add an Alpine.js modal that lazy-loads the form via `hx-get="/transactions/new?partial=1"`, submits in place, and refreshes dashboard widgets (KPIs, charts, account balances, recent transactions) via HTMX partial swaps. The form would be extracted into `partials/transaction_form.html` so the same partial is reused by the modal and the full create page.
 
 #### Post-Phase 3 bugfixes
 

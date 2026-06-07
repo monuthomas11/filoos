@@ -358,6 +358,4 @@ def test_dashboard_budgets_json(client: TestClient):
     response = client.get("/api/dashboard/budgets")
     assert response.status_code == 200
     data = response.json()
-    assert "year" in data
-    assert "month" in data
     assert "data" in data

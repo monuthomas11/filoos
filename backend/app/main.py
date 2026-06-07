@@ -5,11 +5,14 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import HTTPException
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
 from app.database import ensure_data_dir, session_scope
+from app.templates import templates
 
 BASE_DIR = Path(__file__).resolve().parent
 settings = get_settings()
@@ -35,6 +38,23 @@ app = FastAPI(
 )
 
 
+# ---------------------------------------------------------------------------
+# Error handlers
+# ---------------------------------------------------------------------------
+
+
+@app.exception_handler(404)
+async def not_found_handler(_request: Request, _exc: HTTPException) -> HTMLResponse:
+    return templates.TemplateResponse(_request, "404.html", status_code=404)
+
+
+@app.exception_handler(Exception)
+async def server_error_handler(request: Request, exc: Exception) -> HTMLResponse:
+    if isinstance(exc, HTTPException):
+        raise exc
+    return templates.TemplateResponse(request, "500.html", status_code=500)
+
+
 # Static files (CSS, JS, images).
 app.mount(
     "/static",
@@ -52,6 +72,7 @@ from app.routers.budgets import router as budgets_router  # noqa: E402
 from app.routers.categories import router as categories_router  # noqa: E402
 from app.routers.dashboard import router as dashboard_router  # noqa: E402
 from app.routers.pages import router as pages_router  # noqa: E402
+from app.routers.predictions import router as predictions_router  # noqa: E402
 from app.routers.recurring import router as recurring_router  # noqa: E402
 from app.routers.transactions import router as transactions_router  # noqa: E402
 
@@ -62,6 +83,7 @@ app.include_router(categories_router)
 app.include_router(budgets_router)
 app.include_router(recurring_router)
 app.include_router(dashboard_router)
+app.include_router(predictions_router)
 
 
 # ---------------------------------------------------------------------------

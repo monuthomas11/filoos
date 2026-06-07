@@ -230,6 +230,25 @@ def compute_account_balance(account: Account, db: Session) -> Decimal:
     return account.opening_balance + result
 
 
+def compute_total_balance(accounts: list[Account], db: Session) -> Decimal:
+    """Return the sum of balances across multiple accounts in a single query."""
+    if not accounts:
+        return Decimal("0.00")
+    account_ids = [a.id for a in accounts]
+    tx_sums = dict(
+        db.query(
+            Transaction.account_id,
+            func.coalesce(func.sum(Transaction.amount), 0),
+        )
+        .filter(Transaction.account_id.in_(account_ids))
+        .group_by(Transaction.account_id)
+        .all()
+    )
+    return sum(
+        a.opening_balance + tx_sums.get(a.id, Decimal("0.00")) for a in accounts
+    )
+
+
 def get_recent_transactions(db: Session, limit: int = 10) -> list[Transaction]:
     return db.query(Transaction).order_by(
         Transaction.date.desc(), Transaction.created_at.desc()

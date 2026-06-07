@@ -44,7 +44,7 @@
 
     <!-- Colour -->
     <div>
-      <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Colour</label>
+      <label for="color" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Colour</label>
       <div class="mt-1 flex items-center gap-3">
         <span id="cat-color-preview" class="inline-block h-6 w-6 rounded-full border border-neutral-300" style="background-color: {{ category.color if category else '#7c3aed' }}"></span>
         <input
@@ -52,8 +52,9 @@
           value="{{ category.color if category else '#7c3aed' }}"
           oninput="document.getElementById('cat-color-preview').style.backgroundColor=this.value"
           class="h-8 w-12 cursor-pointer rounded border border-neutral-300 bg-transparent p-0.5 dark:border-neutral-700"
+          aria-describedby="cat-color-help"
         />
-        <span class="text-xs text-neutral-400">optional</span>
+        <span id="cat-color-help" class="text-xs text-neutral-400">optional</span>
       </div>
     </div>
 

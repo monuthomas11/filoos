@@ -68,7 +68,7 @@
 
     <!-- Colour preview -->
     <div>
-      <label class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Colour</label>
+      <label for="color" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Colour</label>
       <div class="mt-1 flex items-center gap-3">
         <span id="account-color-preview" class="inline-block h-6 w-6 rounded-full border border-neutral-300" style="background-color: {{ account.color if account else '#4f46e5' }}"></span>
         <input
@@ -76,19 +76,20 @@
           value="{{ account.color if account else '#4f46e5' }}"
           oninput="document.getElementById('account-color-preview').style.backgroundColor=this.value"
           class="h-8 w-12 cursor-pointer rounded border border-neutral-300 bg-transparent p-0.5 dark:border-neutral-700"
+          aria-describedby="color-help"
         />
-        <span class="text-xs text-neutral-400">optional; defaults from type</span>
+        <span id="color-help" class="text-xs text-neutral-400">optional; defaults from type</span>
       </div>
     </div>
 
     <!-- Active -->
     <div class="flex items-center gap-2">
+      <input type="hidden" name="is_active" value="false" />
       <input
         type="checkbox" id="is_active" name="is_active" value="true"
         {% if not account or account.is_active %}checked{% endif %}
         class="h-4 w-4 rounded border-neutral-300 text-accent-600 focus:ring-accent-500 dark:border-neutral-700"
       />
-      <input type="hidden" name="is_active" value="false" />
       <label for="is_active" class="text-sm text-neutral-700 dark:text-neutral-300">Active</label>
     </div>
 

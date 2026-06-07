@@ -47,18 +47,8 @@
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
 
-  <!-- App stylesheet (small overrides + transitions). -->
   <link rel="stylesheet" href="{{ url_for('static', path='css/app.css') }}" />
-
-  <!-- Dark-mode overrides for native form controls (bypasses cache issues with external CSS). -->
-  <style>
-    .dark input[type="date"] {
-      color-scheme: dark;
-    }
-    .dark input[type="date"]::-webkit-calendar-picker-indicator {
-      filter: invert(1);
-    }
-  </style>
+  <script src="{{ url_for('static', path='js/app.js') }}"></script>
 
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z'/%3E%3C/svg%3E" />
 </head>
@@ -69,11 +59,11 @@
   <header class="sticky top-0 z-30 border-b border-neutral-200 bg-white/80 backdrop-blur dark:border-neutral-800 dark:bg-neutral-950/80">
     <div class="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 sm:px-6">
       <a href="/" class="flex items-center gap-2 font-semibold tracking-tight">
-        <span class="inline-block h-6 w-6 rounded-md bg-accent-600"></span>
+        <span class="inline-block h-6 w-6 rounded-md bg-accent-600" aria-hidden="true"></span>
         <span>{{ app_name }}</span>
       </a>
 
-      <nav class="hidden gap-1 text-sm md:flex">
+      <nav class="hidden gap-1 text-sm md:flex" aria-label="Main navigation">
         <a href="/" class="rounded-md px-3 py-1.5 text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-900">Dashboard</a>
         <a href="/accounts" class="rounded-md px-3 py-1.5 text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-900">Accounts</a>
         <a href="/transactions" class="rounded-md px-3 py-1.5 text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-900">Transactions</a>
@@ -88,11 +78,12 @@
         :aria-pressed="dark.toString()"
         class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-neutral-200 text-neutral-700 hover:bg-neutral-100 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-900"
         title="Toggle theme"
+        aria-label="Toggle theme"
       >
         <!-- sun -->
-        <svg x-show="!dark" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        <svg x-show="!dark" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
         <!-- moon -->
-        <svg x-show="dark" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
+        <svg x-show="dark" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
       </button>
     </div>
   </header>
@@ -102,17 +93,8 @@
   </main>
 
   <footer class="mx-auto max-w-7xl px-4 py-8 text-xs text-neutral-500 sm:px-6 dark:text-neutral-500">
-    <p>{{ app_name }} · Phase 6 · <a class="underline hover:text-neutral-700 dark:hover:text-neutral-300" href="/docs" target="_blank" rel="noopener">API docs</a></p>
+    <p>{{ app_name }} · Phase 8 · <a class="underline hover:text-neutral-700 dark:hover:text-neutral-300" href="/docs" target="_blank" rel="noopener">API docs</a></p>
   </footer>
-
-  <script>
-    window.FF_COLORS = {
-      accent: '#4f46e5',
-      positive: '#16a34a',
-      negative: '#dc2626',
-      muted: '#737373',
-    };
-  </script>
 
   {% block scripts %}{% endblock %}
 

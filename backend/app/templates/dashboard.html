@@ -13,7 +13,7 @@
       href="/transactions/new?from=/"
       class="inline-flex items-center gap-1.5 rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-accent-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600"
     >
-      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
       Add transaction
     </a>
   </div>
@@ -26,6 +26,13 @@
         {{ currency_symbol }}{{ total_balance|string }}
       </p>
       <p class="mt-1 text-xs text-neutral-400">{{ accounts|length }} account(s)</p>
+      <!-- Runway warning → shown/hidden by JS -->
+      <div id="runway-warning" class="mt-2 hidden" role="alert">
+        <span class="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/></svg>
+          <span id="runway-text"></span>
+        </span>
+      </div>
     </div>
     <div class="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
       <p class="text-xs uppercase tracking-wide text-neutral-500">This month income</p>
@@ -77,6 +84,18 @@
   </div>
   {% endif %}
 
+  <!-- Period filter -->
+  <div class="flex items-center gap-3">
+    <label for="period-select" class="text-sm font-medium text-neutral-600 dark:text-neutral-400">Period</label>
+    <select id="period-select" class="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
+      <option value="current_month">Current month</option>
+      <option value="previous_month">Previous month</option>
+      <option value="last_3_months">Last 3 months</option>
+      <option value="this_year">This year</option>
+      <option value="all_time">All time</option>
+    </select>
+  </div>
+
   <!-- Chart row -->
   <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
     <div class="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900 lg:col-span-2">
@@ -85,14 +104,29 @@
         <span class="text-xs text-neutral-400">Last 30 days</span>
       </div>
       <div class="mt-4" style="position: relative; height: 260px;">
-        <canvas id="spending-chart"></canvas>
+        <canvas id="spending-chart" role="img" aria-label="Daily spending bar chart"></canvas>
       </div>
     </div>
     <div class="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
       <h2 class="text-sm font-semibold">Category breakdown</h2>
       <div class="mt-4" style="position: relative; height: 260px;">
-        <canvas id="category-chart"></canvas>
+        <canvas id="category-chart" role="img" aria-label="Category breakdown doughnut chart"></canvas>
       </div>
+    </div>
+  </div>
+
+  <!-- Balance projection chart -->
+  <div class="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
+    <div class="flex items-center justify-between">
+      <h2 class="text-sm font-semibold">Balance projection</h2>
+      <select id="horizon-select" class="rounded-lg border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
+        <option value="30">30 days</option>
+        <option value="60" selected>60 days</option>
+        <option value="90">90 days</option>
+      </select>
+    </div>
+    <div class="mt-4" style="position: relative; height: 260px;">
+      <canvas id="balance-chart" role="img" aria-label="Balance projection line chart"></canvas>
     </div>
   </div>
 
@@ -153,20 +187,7 @@
     {% endif %}
   </div>
 
-  <!-- Phase status -->
-  <div class="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
-    <h2 class="text-sm font-semibold">Build status</h2>
-    <ul class="mt-3 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
-      <li class="flex items-center gap-2"><span class="h-2 w-2 rounded-full bg-positive-500"></span> Phase 1 · Foundation</li>
-      <li class="flex items-center gap-2"><span class="h-2 w-2 rounded-full bg-positive-500"></span> Phase 2 · Accounts</li>
-      <li class="flex items-center gap-2"><span class="h-2 w-2 rounded-full bg-positive-500"></span> Phase 3 · Transactions</li>
-      <li class="flex items-center gap-2"><span class="h-2 w-2 rounded-full bg-positive-500"></span> Phase 4 · Dashboard v1</li>
-      <li class="flex items-center gap-2"><span class="h-2 w-2 rounded-full bg-positive-500"></span> Phase 5 · Categories &amp; Budgets</li>
-      <li class="flex items-center gap-2"><span class="h-2 w-2 rounded-full bg-positive-500"></span> Phase 6 · Recurring rules</li>
-      <li class="flex items-center gap-2 text-neutral-400"><span class="h-2 w-2 rounded-full bg-neutral-300 dark:bg-neutral-700"></span> Phase 7 · Predictions</li>
-      <li class="flex items-center gap-2 text-neutral-400"><span class="h-2 w-2 rounded-full bg-neutral-300 dark:bg-neutral-700"></span> Phase 8 · Polish</li>
-    </ul>
-  </div>
+
 </section>
 {% endblock %}
 
@@ -174,140 +195,315 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   var symbol = '{{ currency_symbol }}';
+  var periodSelect = document.getElementById('period-select');
 
-  // --- KPI: monthly summary ---
-  fetch('/api/dashboard/summary')
-    .then(function (r) { return r.json(); })
-    .then(function (data) {
-      document.getElementById('kpi-income').textContent = symbol + data.income;
-      document.getElementById('kpi-expense').textContent = symbol + data.expense;
-      document.getElementById('kpi-savings-rate').textContent =
-        data.savings_rate !== null ? data.savings_rate + '%' : '—';
-    })
-    .catch(function () {
-      // API unavailable — leave placeholders as-is
-    });
+  // --- Period helpers ---
+  function getApiParams(period) {
+    var today = new Date();
+    var y = today.getFullYear();
+    var m = today.getMonth() + 1;
+    var p = {};
+    switch (period) {
+      case 'current_month':
+        p.year = y; p.month = m; p.range = today.getDate();
+        break;
+      case 'previous_month':
+        var d = new Date(y, m - 2, 1);
+        p.year = d.getFullYear(); p.month = d.getMonth() + 1;
+        p.range = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+        break;
+      case 'last_3_months':
+        var d2 = new Date(today);
+        d2.setMonth(d2.getMonth() - 3);
+        p.start_date = d2.toISOString().slice(0, 10);
+        p.end_date = today.toISOString().slice(0, 10);
+        p.range = 90;
+        break;
+      case 'this_year':
+        p.start_date = y + '-01-01';
+        p.end_date = today.toISOString().slice(0, 10);
+        p.range = 365;
+        break;
+      case 'all_time':
+        p.range = 365;
+        break;
+    }
+    return p;
+  }
 
-  // --- Daily spending bar chart ---
-  fetch('/api/dashboard/spending?range=30')
-    .then(function (r) { return r.json(); })
-    .then(function (res) {
-      var data = res.data;
-      var ctx = document.getElementById('spending-chart');
-      if (!ctx || !data.length) return;
-      new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: data.map(function (d) { return d.date.slice(5); }),
-          datasets: [{
-            label: 'Spending',
-            data: data.map(function (d) { return parseFloat(d.amount); }),
-            backgroundColor: window.FF_COLORS.accent,
-            borderRadius: 4,
-          }],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                label: function (c) { return symbol + c.parsed.y.toFixed(2); },
+  function toQueryString(params) {
+    var keys = Object.keys(params);
+    if (!keys.length) return '';
+    return '?' + keys.map(function (k) {
+      return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+    }).join('&');
+  }
+
+  // Chart instances (for destroy/re-create)
+  var spendingChart = null;
+  var categoryChart = null;
+  var balanceChart = null;
+
+  function loadAllData(period) {
+    var p = getApiParams(period);
+    var qs = toQueryString(p);
+
+    // --- KPI: monthly summary ---
+    fetch('/api/dashboard/summary' + qs)
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        document.getElementById('kpi-income').textContent = symbol + data.income;
+        document.getElementById('kpi-expense').textContent = symbol + data.expense;
+        document.getElementById('kpi-savings-rate').textContent =
+          data.savings_rate !== null ? data.savings_rate + '%' : '—';
+      })
+      .catch(function () {});
+
+    // --- Daily spending bar chart ---
+    fetch('/api/dashboard/spending' + qs)
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        var data = res.data;
+        var ctx = document.getElementById('spending-chart');
+        if (!ctx) return;
+        if (spendingChart) spendingChart.destroy();
+        if (!data.length) { spendingChart = null; return; }
+        spendingChart = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: data.map(function (d) { return d.date.slice(5); }),
+            datasets: [{
+              label: 'Spending',
+              data: data.map(function (d) { return parseFloat(d.amount); }),
+              backgroundColor: window.FF_COLORS.accent,
+              borderRadius: 4,
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: function (c) { return symbol + c.parsed.y.toFixed(2); },
+                },
               },
             },
-          },
-          scales: {
-            x: {
-              grid: { display: false },
-              ticks: { maxTicksLimit: 15, font: { size: 11 } },
-            },
-            y: {
-              beginAtZero: true,
-              grid: { color: 'rgba(0,0,0,0.06)' },
-              ticks: {
-                font: { size: 11 },
-                callback: function (v) { return symbol + v; },
+            scales: {
+              x: {
+                grid: { display: false },
+                ticks: { maxTicksLimit: 15, font: { size: 11 } },
               },
-            },
-          },
-        },
-      });
-    })
-    .catch(function () { /* swallow */ });
-
-  // --- Category breakdown doughnut chart ---
-  fetch('/api/dashboard/category-breakdown')
-    .then(function (r) { return r.json(); })
-    .then(function (res) {
-      var data = res.data;
-      var ctx = document.getElementById('category-chart');
-      if (!ctx || !data.length) return;
-      new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-          labels: data.map(function (d) { return d.label; }),
-          datasets: [{
-            data: data.map(function (d) { return parseFloat(d.amount); }),
-            backgroundColor: data.map(function (d) { return d.color || window.FF_COLORS.accent; }),
-            borderWidth: 0,
-          }],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: {
-              position: 'bottom',
-              labels: { font: { size: 11 }, boxWidth: 12, padding: 12 },
-            },
-            tooltip: {
-              callbacks: {
-                label: function (c) {
-                  return c.label + ': ' + symbol + c.parsed.toFixed(2);
+              y: {
+                beginAtZero: true,
+                grid: { color: 'rgba(0,0,0,0.06)' },
+                ticks: {
+                  font: { size: 11 },
+                  callback: function (v) { return symbol + v; },
                 },
               },
             },
           },
-        },
-      });
-    })
-    .catch(function () { /* swallow */ });
+        });
+      })
+      .catch(function () {});
 
-  // --- Budget progress ---
-  fetch('/api/dashboard/budgets')
-    .then(function (r) { return r.json(); })
-    .then(function (res) {
-      var data = res.data;
-      var container = document.getElementById('budget-progress-container');
-      if (!container) return;
-      if (!data || !data.length) {
-        container.innerHTML = '<div class="flex h-16 items-center justify-center rounded-md border border-dashed border-neutral-200 text-sm text-neutral-400 dark:border-neutral-800"><a href="/budgets/new" class="font-medium text-accent-600 hover:text-accent-700">Set your first budget</a></div>';
-        return;
-      }
-      var html = '';
-      data.forEach(function (b) {
-        var pct = Math.min(b.percentage, 100);
-        var barColor = b.over_budget ? window.FF_COLORS.negative : (b.category_color || window.FF_COLORS.accent);
-        html += '<div class="space-y-1">';
-        html += '<div class="flex items-baseline justify-between text-sm">';
-        html += '<span class="text-neutral-700 dark:text-neutral-300">' + b.category_name + '</span>';
-        html += '<span class="' + (b.over_budget ? 'text-negative-600 font-semibold' : 'text-neutral-500') + '">' + symbol + b.spent + ' / ' + symbol + b.amount + '</span>';
-        html += '</div>';
-        html += '<div class="h-2 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">';
-        html += '<div class="h-full rounded-full transition-all" style="width: ' + pct + '%; background-color: ' + barColor + '"></div>';
-        html += '</div>';
-        html += '<p class="text-xs ' + (b.over_budget ? 'text-negative-600 font-medium' : 'text-neutral-400') + '">';
-        if (b.over_budget) {
-          html += 'Over budget by ' + symbol + b.remaining.replace('-', '');
-        } else {
-          html += symbol + b.remaining + ' remaining';
+    // --- Category breakdown doughnut chart ---
+    fetch('/api/dashboard/category-breakdown' + qs)
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        var data = res.data;
+        var ctx = document.getElementById('category-chart');
+        if (!ctx) return;
+        if (categoryChart) categoryChart.destroy();
+        if (!data.length) { categoryChart = null; return; }
+        categoryChart = new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: data.map(function (d) { return d.label; }),
+            datasets: [{
+              data: data.map(function (d) { return parseFloat(d.amount); }),
+              backgroundColor: data.map(function (d) { return d.color || window.FF_COLORS.accent; }),
+              borderWidth: 0,
+            }],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: 'bottom',
+                labels: { font: { size: 11 }, boxWidth: 12, padding: 12 },
+              },
+              tooltip: {
+                callbacks: {
+                  label: function (c) {
+                    return c.label + ': ' + symbol + c.parsed.toFixed(2);
+                  },
+                },
+              },
+            },
+          },
+        });
+      })
+      .catch(function () {});
+
+    // --- Balance projection line chart with confidence bands ---
+    var horizonSelect = document.getElementById('horizon-select');
+
+    function loadBalanceChart() {
+      var horizon = horizonSelect ? horizonSelect.value : '60';
+      fetch('/api/predictions/balance?horizon=' + horizon)
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+          var data = res.projections;
+          var ctx = document.getElementById('balance-chart');
+          if (!ctx) return;
+          if (balanceChart) balanceChart.destroy();
+          if (!data || !data.length) { balanceChart = null; return; }
+
+          // Runway warning
+          var rw = document.getElementById('runway-warning');
+          var rt = document.getElementById('runway-text');
+          if (res.runway && rw && rt) {
+            var days = Math.floor((new Date(res.runway + 'T00:00:00') - new Date()) / (1000*60*60*24));
+            rw.classList.remove('hidden');
+            rt.textContent = days > 0
+              ? days + ' days until projected zero'
+              : 'Projected balance below zero today';
+          } else if (rw) {
+            rw.classList.add('hidden');
+          }
+
+          var labels = data.map(function (d) { return d.date.slice(5); });
+          var balances = data.map(function (d) { return parseFloat(d.balance); });
+          var upper = data.map(function (d) { return parseFloat(d.upper); });
+          var lower = data.map(function (d) { return parseFloat(d.lower); });
+
+          balanceChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+              labels: labels,
+              datasets: [
+                {
+                  label: 'Upper bound',
+                  data: upper,
+                  borderColor: '#94a3b8',
+                  borderDash: [5, 3],
+                  borderWidth: 1.5,
+                  pointRadius: 0,
+                  fill: false,
+                  tension: 0.3,
+                },
+                {
+                  label: 'Projected balance',
+                  data: balances,
+                  borderColor: window.FF_COLORS.accent,
+                  borderWidth: 2,
+                  pointRadius: 0,
+                  fill: false,
+                  tension: 0.3,
+                },
+                {
+                  label: 'Lower bound',
+                  data: lower,
+                  borderColor: '#94a3b8',
+                  borderDash: [5, 3],
+                  borderWidth: 1.5,
+                  pointRadius: 0,
+                  fill: false,
+                  tension: 0.3,
+                },
+              ],
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              plugins: {
+                legend: {
+                  display: true,
+                  position: 'bottom',
+                  labels: { font: { size: 11 }, boxWidth: 16, padding: 12, usePointStyle: true },
+                },
+                tooltip: {
+                  callbacks: {
+                    label: function (c) {
+                      return c.dataset.label + ': ' + symbol + c.parsed.y.toFixed(2);
+                    },
+                  },
+                },
+              },
+              scales: {
+                x: {
+                  grid: { display: false },
+                  ticks: { maxTicksLimit: 15, font: { size: 11 } },
+                },
+                y: {
+                  grid: { color: 'rgba(0,0,0,0.06)' },
+                  ticks: {
+                    font: { size: 11 },
+                    callback: function (v) { return symbol + v; },
+                  },
+                },
+              },
+            },
+          });
+        })
+        .catch(function () {});
+    }
+
+    if (horizonSelect) {
+      horizonSelect.addEventListener('change', loadBalanceChart);
+    }
+
+    // --- Budget progress ---
+    fetch('/api/dashboard/budgets' + qs)
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        var data = res.data;
+        var container = document.getElementById('budget-progress-container');
+        if (!container) return;
+        if (!data || !data.length) {
+          container.innerHTML = '<div class="flex h-16 items-center justify-center rounded-md border border-dashed border-neutral-200 text-sm text-neutral-400 dark:border-neutral-800"><a href="/budgets/new" class="font-medium text-accent-600 hover:text-accent-700">Set your first budget</a></div>';
+          return;
         }
-        html += '</p></div>';
-      });
-      container.innerHTML = html;
-    })
-    .catch(function () { /* swallow */ });
+        var html = '';
+        data.forEach(function (b) {
+          var pct = Math.min(b.percentage, 100);
+          var barColor = b.over_budget ? window.FF_COLORS.negative : (b.category_color || window.FF_COLORS.accent);
+          html += '<div class="space-y-1">';
+          html += '<div class="flex items-baseline justify-between text-sm">';
+          html += '<span class="text-neutral-700 dark:text-neutral-300">' + b.category_name + '</span>';
+          html += '<span class="' + (b.over_budget ? 'text-negative-600 font-semibold' : 'text-neutral-500') + '">' + symbol + b.spent + ' / ' + symbol + b.amount + '</span>';
+          html += '</div>';
+          html += '<div class="h-2 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">';
+          html += '<div class="h-full rounded-full transition-all" style="width: ' + pct + '%; background-color: ' + barColor + '"></div>';
+          html += '</div>';
+          html += '<p class="text-xs ' + (b.over_budget ? 'text-negative-600 font-medium' : 'text-neutral-400') + '">';
+          if (b.over_budget) {
+            html += 'Over budget by ' + symbol + b.remaining.replace('-', '');
+          } else {
+            html += symbol + b.remaining + ' remaining';
+          }
+          html += '</p></div>';
+        });
+        container.innerHTML = html;
+      })
+      .catch(function () {});
+  }
+
+  // Initial load
+  var initialPeriod = periodSelect ? periodSelect.value : 'current_month';
+  loadAllData(initialPeriod);
+  loadBalanceChart();
+
+  // Re-fetch on period change
+  if (periodSelect) {
+    periodSelect.addEventListener('change', function () {
+      loadAllData(this.value);
+    });
+  }
 });
 </script>
 {% endblock %}
