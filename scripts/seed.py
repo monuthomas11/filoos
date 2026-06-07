@@ -24,9 +24,12 @@ from sqlalchemy.orm import Session, sessionmaker
 import app.models  # noqa: E402, F401 — register all models on Base.metadata
 from app.config import get_settings  # noqa: E402
 from app.crud.account import create_account  # noqa: E402
+from app.crud.recurring import create_rule  # noqa: E402
 from app.crud.transaction import create_transaction, create_transfer  # noqa: E402
 from app.models.account import AccountType  # noqa: E402
+from app.models.recurring import RecurringFrequency, RecurringTransactionType  # noqa: E402
 from app.schemas.account import AccountCreate  # noqa: E402
+from app.schemas.recurring import RecurringRuleCreate  # noqa: E402
 
 
 def _clean(db: Session) -> None:
@@ -35,9 +38,11 @@ def _clean(db: Session) -> None:
     from app.models.budget import Budget
     from app.models.category import Category
     from app.models.account import Account
+    from app.models.recurring import RecurringRule
 
     db.query(Transaction).delete()
     db.query(Budget).delete()
+    db.query(RecurringRule).delete()
     db.query(Category).delete()
     db.query(Account).delete()
     db.commit()
@@ -141,6 +146,38 @@ def _seed(db: Session) -> None:
         "Jio Recharge", today - datetime.timedelta(days=1),
     )
 
+    # ------------------------------------------------------------------
+    # Recurring rules (2)
+    # ------------------------------------------------------------------
+    # 1. Monthly salary (income)
+    create_rule(
+        db,
+        RecurringRuleCreate(
+            account_id=hdfc.id,
+            amount=Decimal("50000"),
+            type=RecurringTransactionType.INCOME,
+            description="Monthly Salary",
+            frequency=RecurringFrequency.MONTHLY,
+            interval=1,
+            start_date=today.replace(day=1),
+            day_of_month=1,
+        ),
+    )
+    # 2. Monthly rent (expense)
+    create_rule(
+        db,
+        RecurringRuleCreate(
+            account_id=hdfc.id,
+            amount=Decimal("18000"),
+            type=RecurringTransactionType.EXPENSE,
+            description="Monthly Rent",
+            frequency=RecurringFrequency.MONTHLY,
+            interval=1,
+            start_date=today.replace(day=1),
+            day_of_month=5,
+        ),
+    )
+
 
 def _ensure_migrations(engine) -> None:
     """Run ``alembic upgrade head`` so tables exist and are stamped.
@@ -186,6 +223,7 @@ def main() -> None:
         print(f"[OK] Database seeded successfully ({settings.database_url})")
         print("   - 4 accounts: Wallet, HDFC Bank, SBI Savings, Axis Credit Card")
         print("   - 11 transaction rows (9 entries + 1 transfer = 2 rows)")
+        print("   - 2 recurring rules: Monthly Salary, Monthly Rent")
     finally:
         db.close()
         engine.dispose()

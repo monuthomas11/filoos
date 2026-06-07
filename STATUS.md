@@ -2,7 +2,7 @@
 
 > **Read this first if you're a new agent/session/model.** It captures *where the project is right now* and the minimum context needed to continue. For full design rationale see [`PLAN.md`](./PLAN.md). For setup & usage see [`README.md`](./README.md).
 
-Last updated: **Phase 8 (Polish)** ✅ complete — all 9 tasks done, 202 tests passing.
+Last updated: **Phase 8 (Polish)** ✅ complete — all 13 tasks done, 202 tests passing.
 
 ---
 
@@ -33,7 +33,7 @@ Last updated: **Phase 8 (Polish)** ✅ complete — all 9 tasks done, 202 tests 
 | 5 | Categories & Budgets | **done** | Category CRUD, budget progress bars, 45 tests (21 categories + 24 budgets) |
 | 6 | Recurring rules | **done** | Model, CRUD, HTMX forms, materializer, next-occurrences preview, 36 tests |
 | 7 | Predictions | **done** | EMA + day-of-week seasonality + confidence bands, balance projection chart, runway warning, 22 tests |
-| 8 | Polish | **done** | Dashboard period filter, seed hardening, error pages, a11y, compiled Tailwind, deploy notes — **202 tests total** |
+| 8 | Polish | **done** | Dashboard period filter, seed hardening, error pages, a11y, compiled Tailwind, deploy notes, bug fixes, mobile nav — **202 tests total** |
 
 ---
 
@@ -43,14 +43,14 @@ Last updated: **Phase 8 (Polish)** ✅ complete — all 9 tasks done, 202 tests 
 
 - `__init__.py` — package marker, exposes `__version__ = "0.1.0"`.
 - `main.py` — FastAPI app factory. `lifespan` calls `ensure_data_dir()`. Mounts `/static`, configures `Jinja2Templates` with globals (`app_name`, `default_currency`, `currency_symbol`, `app_env`). Routes: `GET /` (dashboard), `GET /healthz` (liveness).
-- `config.py` — `Settings(BaseSettings)` from pydantic-settings. Reads `.env` from project root. Fields: `app_name`, `app_env`, `debug`, `database_url`, `default_currency`, `currency_symbol`, `forecast_history_days`, `forecast_cache_ttl_seconds`, `recurring_auto_materialize`. `@lru_cache get_settings()`.
+- `config.py` — `Settings(BaseSettings)` from pydantic-settings. Reads `.env` from project root. Fields: `app_name`, `app_env`, `debug`, `database_url`, `default_currency`, `currency_symbol` (Unicode escape `\u20b9` for Windows encoding safety), `forecast_history_days`, `forecast_cache_ttl_seconds`, `recurring_auto_materialize`. `@lru_cache get_settings()`.
 - `database.py` — SQLAlchemy 2.0 `engine` (with `check_same_thread=False` for SQLite), `SessionLocal`, `Base(DeclarativeBase)`, `get_db()` FastAPI dep, `session_scope()` context manager for scripts, `ensure_data_dir()` helper.
 - `deps.py` — re-exports `get_db` for `from app.deps import get_db`.
 - `models/`, `schemas/`, `crud/`, `routers/`, `services/` — empty `__init__.py` placeholders, populated per phase.
 
 ### Templates (`backend/app/templates/`)
 
-- `base.html` — Tailwind Play CDN with inline config (system font stack, `accent-600` = indigo-600, `positive-600` = emerald-600, `negative-600` = red-600, `darkMode: 'class'`). Loads HTMX 1.9, Alpine 3, Chart.js 4 (deferred). Sticky header with logo + phase-aware nav (Accounts/Transactions active, Budgets/Recurring disabled). Dark-mode toggle button (Alpine + `localStorage` key `ff-dark`). SVG favicon (indigo document icon). Slot `{% block content %}` over a max-w-7xl container. Footer with `/docs` link.
+- `base.html` — Tailwind Play CDN with inline config (system font stack, `accent-600` = indigo-600, `positive-600` = emerald-600, `negative-600` = red-600, `darkMode: 'class'`). Loads HTMX 1.9, Alpine 3, Chart.js 4 (deferred). Sticky header with logo + phase-aware nav (Accounts/Transactions active, Budgets/Recurring disabled). Dark-mode toggle button (Alpine + `localStorage` key `ff-dark`). Mobile hamburger menu with animated slide-down panel (visible below `md` breakpoint). SVG favicon (indigo document icon). Slot `{% block content %}` over a max-w-7xl container. Footer with `/docs` link.
 - `dashboard.html` — extends base. Hero with "Dashboard" + Phase 1 status note. 4 KPI cards with real data (Total balance server-rendered; Income/Expense/Savings rate populated client-side from `/api/dashboard/summary`). Per-account cards with computed balances. Real recent-transactions list (last 10). Real Chart.js charts (daily spending bar, category doughnut) initialized via `DOMContentLoaded` listener. 8-phase build-status list (Phases 1-4 green).
 
 ### Static (`backend/app/static/`)
@@ -75,7 +75,7 @@ Last updated: **Phase 8 (Polish)** ✅ complete — all 9 tasks done, 202 tests 
 - `dev.ps1` (Windows PowerShell 5.1+) — creates `.venv` if missing, activates it, installs `.[dev]`, runs `alembic upgrade head`, starts uvicorn on `127.0.0.1:8000` with `--reload`. Idempotent.
 - `dev.sh` (POSIX) — same flow, bash + `source bin/activate`.
 - `build_css.sh` — placeholder for future Tailwind standalone-CLI build. Skips cleanly if `tailwindcss` not on PATH.
-- `seed.py` — real seeder (upgraded ahead-of-schedule). Creates 4 accounts (Wallet, HDFC Bank, SBI Savings, Axis Credit Card) + 11 transaction rows with INR amounts. Runs `alembic upgrade head` programmatically.
+- `seed.py` — real seeder (upgraded ahead-of-schedule). Creates 4 accounts (Wallet, HDFC Bank, SBI Savings, Axis Credit Card) + 11 transaction rows with INR amounts + 2 recurring rules (Monthly Salary, Monthly Rent). Runs `alembic upgrade head` programmatically.
 
 ### Root files
 
@@ -89,26 +89,16 @@ Last updated: **Phase 8 (Polish)** ✅ complete — all 9 tasks done, 202 tests 
 
 ---
 
-## 4. What was verified (latest session — Phase 8)
+## 4. What was verified (latest session — Phase 8 bug fixes)
 
 - ✅ `pytest -q` → **202 passed, 0 failed**.
 - ✅ `ruff check .` — all clean.
-- ✅ Dashboard period filter dropdown renders 5 options (Current month, Previous month, Last 3 months, This year, All time).
-- ✅ Switching period re-fetches all KPIs, charts, and budget progress via `loadAllData(period)`.
-- ✅ Seed script recovers from stale DB (deletes and retries after alembic upgrade/stamp fails).
-- ✅ `GET /nonexistent` returns styled 404 page.
-- ✅ `GET /error` returns styled 500 page (with traceback in dev mode).
-- ✅ All edit/delete links in card partials have `aria-label`.
-- ✅ All decorative SVGs have `aria-hidden="true"`.
-- ✅ All canvases have `role="img"` + `aria-label`.
-- ✅ Error/warning containers have `role="alert"`.
-- ✅ Colour input labels have `for` attribute; inputs have `aria-describedby`.
-- ✅ `backend/tailwind.config.js` mirrors the inline Play CDN config.
-- ✅ `scripts/build_css.sh` accepts `--config` flag.
-- ✅ `Dockerfile` created with `python:3.11-slim`, exposes port 8000.
-- ✅ `README.md` has deployment section (Docker, Render, Railway, Fly.io).
-- ✅ `window.FF_COLORS` moved from `base.html` to `js/app.js`.
-- ✅ PLAN.md, STATUS.md, README.md updated with 202 test count and Phase 8 status.
+- ✅ `/accounts` page now displays correct balances for all accounts (fixed `balances` dict → per-account `balance` variable).
+- ✅ Currency symbol `₹` renders correctly across all pages (Unicode escape `\u20b9` in `config.py`).
+- ✅ Seed script creates 2 sample recurring rules (Monthly Salary, Monthly Rent).
+- ✅ Mobile hamburger menu visible below 768px breakpoint with animated slide-down panel.
+- ✅ Hamburger icon toggles to X when menu is open; clicking outside closes it.
+- ✅ Desktop navigation unchanged above 768px.
 
 ---
 
@@ -181,6 +171,10 @@ cd backend && ruff check .
 | 7 | **Compiled Tailwind CSS** | ✅ done |
 | 8 | **Free-hosting deploy notes** | ✅ done |
 | 9 | **Shared palette constant** | ✅ done |
+| 10 | **Account balance display fix** | ✅ done |
+| 11 | **Currency symbol encoding fix** | ✅ done |
+| 12 | **Seed recurring rules** | ✅ done |
+| 13 | **Mobile hamburger navigation** | ✅ done |
 
 ## 9. Completed phases
 
@@ -226,6 +220,10 @@ Shipped:
 - **Compiled Tailwind CSS**: Created `backend/tailwind.config.js` mirroring the inline Play CDN config (dark mode class, system font stack, accent/positive/negative color palette, border radius). Updated `scripts/build_css.sh` to pass `--config` flag. Removed legacy placeholder comments.
 - **Free-hosting deploy notes**: Created `Dockerfile` (python:3.11-slim, port 8000). Added deployment section to README.md covering Docker build/run, Render, Railway, and Fly.io with persistent volume guidance.
 - **Shared palette constant**: Moved `window.FF_COLORS` assignment from `base.html` inline script to `js/app.js`. It was already referenced in `dashboard.html` chart configs.
+- **Account balance display fix**: `accounts/list.html` now passes `balance` per-account via `{% with balance = balances[account.id] %}` before including `partials/account_card.html`, matching dashboard behavior.
+- **Currency symbol encoding fix**: Changed `config.py` default from literal `₹` to Unicode escape `\u20b9` to prevent Windows encoding corruption. Updated `.env.example` accordingly.
+- **Seed recurring rules**: `scripts/seed.py` now creates 2 sample `RecurringRule` entries (Monthly Salary income, Monthly Rent expense) and deletes existing rules in `_clean()` for idempotent re-seeding.
+- **Mobile hamburger navigation**: Added responsive hamburger menu to `base.html` with Alpine.js toggle. Visible only below `md` breakpoint. Animated slide-down panel, click-outside to close, ARIA accessible attributes. Desktop nav unchanged.
 
 Key decisions:
 - Dashboard period filter passes `start_date`/`end_date` API params for ranges; single-month periods still use `year`/`month` for backward compat.

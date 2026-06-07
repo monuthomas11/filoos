@@ -329,6 +329,10 @@ The following items are tracked for Phase 8 based on code review findings:
 | 7 | **Compiled Tailwind CSS** | ✅ done |
 | 8 | **Free-hosting deploy notes** | ✅ done |
 | 9 | **Shared palette constant** | ✅ done |
+| 10 | **Account balance display fix** | ✅ done |
+| 11 | **Currency symbol encoding fix** | ✅ done |
+| 12 | **Seed recurring rules** | ✅ done |
+| 13 | **Mobile hamburger navigation** | ✅ done |
 
 ## 9. Phased Roadmap
 
@@ -399,7 +403,7 @@ The `Dockerfile` at the project root packages the app for any container-based ho
 - Tagging on transactions (e.g. `#business`)? Defer to v2 unless requested.
 - Net-worth tracking across investment accounts? Track in `accounts` table; no separate net-worth model needed.
 - "Shared" expenses (split with a partner)? Out of scope for v1.
-- Mobile responsiveness - dashboard grid will use Tailwind responsive classes; deep mobile UX in a future pass.
+- Mobile responsiveness - hamburger menu for navigation added; deep mobile UX in a future pass.
 
 ## 14. Changelog
 
@@ -660,6 +664,10 @@ Shipped:
 - **Compiled Tailwind CSS**: `backend/tailwind.config.js` mirroring inline config. `scripts/build_css.sh` updated with `--config` flag.
 - **Free-hosting deploy notes**: `Dockerfile` at project root. Deployment section in README with Render/Railway/Fly.io guidance.
 - **Shared palette constant**: `window.FF_COLORS` moved from `base.html` to `js/app.js`.
+- **Account balance display fix**: `accounts/list.html` now passes `balance` per-account via `{% with balance = balances[account.id] %}` before including `partials/account_card.html`, matching dashboard behavior.
+- **Currency symbol encoding fix**: Changed `config.py` default from literal `₹` to Unicode escape `\u20b9` to prevent Windows encoding corruption. Updated `.env.example` accordingly.
+- **Seed recurring rules**: `scripts/seed.py` now creates 2 sample `RecurringRule` entries (Monthly Salary income, Monthly Rent expense) and deletes existing rules in `_clean()` for idempotent re-seeding.
+- **Mobile hamburger navigation**: Added responsive hamburger menu to `base.html` with Alpine.js toggle. Visible only below `md` breakpoint. Animated slide-down panel, click-outside to close, ARIA accessible attributes. Desktop nav unchanged.
 
 Key decisions:
 - Dashboard period filter uses `start_date`/`end_date` API params for multi-month ranges; single-month periods still use `year`/`month` for backward compat.

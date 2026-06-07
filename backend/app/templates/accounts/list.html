@@ -13,7 +13,9 @@
   {% if accounts %}
   <div id="account-list" class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
     {% for account in accounts %}
-      {% include "partials/account_card.html" %}
+      {% with balance = balances[account.id] %}
+        {% include "partials/account_card.html" %}
+      {% endwith %}
     {% endfor %}
   </div>
   {% else %}

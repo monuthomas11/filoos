@@ -59,7 +59,7 @@ class Settings(BaseSettings):
 
     # Currency
     default_currency: str = Field(default="INR", description="ISO 4217 code.")
-    currency_symbol: str = Field(default="₹", description="Display symbol.")
+    currency_symbol: str = Field(default="\u20b9", description="Display symbol.")
 
     # Forecasting
     forecast_history_days: int = 180
