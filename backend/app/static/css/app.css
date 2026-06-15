@@ -18,8 +18,9 @@ html {
 .dark input[type="date"] {
   color-scheme: dark;
 }
-.dark input[type="date"]::-webkit-calendar-picker-indicator {
-  filter: invert(1);
+/* Hide native calendar indicator — replaced by custom <i> icon (see app.js) */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  display: none;
 }
 .dark input[type="date"]::-webkit-datetime-edit {
   color: inherit;

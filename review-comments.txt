@@ -3,7 +3,3 @@
 - Categories
   - not able to delete categories with transactions, but no error message is shown. This can be confusing for users.
   - Consider adding a clear error message when deletion is blocked due to existing transactions.
-
-- Budgets
-  - While creating a budget, Active flag is unchecked. 
-  - Even after saving the budget with checking active flag, and assigning transactions to it, the budget is not shown in the dashboard.
