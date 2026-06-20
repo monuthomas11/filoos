@@ -2,7 +2,7 @@
 
 > **Read this first if you're a new agent/session/model.** It captures *where the project is right now* and the minimum context needed to continue. For full design rationale see [`PLAN.md`](./PLAN.md). For setup & usage see [`README.md`](./README.md).
 
-Last updated: **Phase 8 (Polish)** ✅ complete — all 13 tasks done, 202 tests passing.
+Last updated: **Phase 9 (Auth — Google SSO)** ✅ complete — multi-user data isolation with Google OAuth login.
 
 ---
 
@@ -16,7 +16,7 @@ Last updated: **Phase 8 (Polish)** ✅ complete — all 13 tasks done, 202 tests
 | **Stack** | Python 3.11+ (verified on 3.14.4), FastAPI, SQLAlchemy 2.0, Alembic, Pydantic v2, pydantic-settings, Jinja2, HTMX 1.9, Alpine.js 3, Tailwind CSS (Play CDN for v1), Chart.js 4, pandas + numpy + statsmodels, pytest, ruff |
 | **Database** | SQLite at `data/expenses.db` (gitignored) |
 | **Default currency** | `INR` (display symbol `₹`), single currency, configurable via `.env` |
-| **Mode** | Local-first, single user. Future-proofed for multi-user / free-host deploy. |
+| **Mode** | Multi-user with Google SSO. Each user sees only their own data (`user_id` FK on every table). |
 | **Theme** | Clean neutral slate/indigo, light + dark (persisted in `localStorage`) |
 
 ---
@@ -33,7 +33,8 @@ Last updated: **Phase 8 (Polish)** ✅ complete — all 13 tasks done, 202 tests
 | 5 | Categories & Budgets | **done** | Category CRUD, budget progress bars, 45 tests (21 categories + 24 budgets) |
 | 6 | Recurring rules | **done** | Model, CRUD, HTMX forms, materializer, next-occurrences preview, 36 tests |
 | 7 | Predictions | **done** | EMA + day-of-week seasonality + confidence bands, balance projection chart, runway warning, 22 tests |
-| 8 | Polish | **done** | Dashboard period filter, seed hardening, error pages, a11y, compiled Tailwind, deploy notes, bug fixes, mobile nav — **202 tests total** |
+| 8 | Polish | **done** | Dashboard period filter, seed hardening, error pages, a11y, compiled Tailwind, deploy notes, bug fixes, mobile nav |
+| 9 | Auth (Google SSO) | **done** | Google OAuth login, session auth, per-user data isolation, profile header, sign-out, HTTPS redirect |
 
 ---
 
@@ -109,8 +110,8 @@ Last updated: **Phase 8 (Polish)** ✅ complete — all 13 tasks done, 202 tests
 3. **Sync SQLAlchemy.** Async is unnecessary for this workload and complicates the schema-explorer story.
 4. **HTMX form-submit endpoints return `HX-Redirect`, not partials.** JSON API endpoints (`/api/...`) are reserved for Chart.js data. Create/edit forms live on dedicated full-page views (e.g. `/accounts/new`) where target elements like `#account-list` don't exist, so HTMX silently discards partial responses. POST/PATCH now return `Response(headers={"HX-Redirect": "/accounts"})` instead. DELETE endpoints still return 200 with `HX-Trigger` — the list page re-fetches via HTMX.
 5. **Transfers** = two `transactions` rows (one negative, one positive) sharing `transfer_pair_id`. No separate `transfers` table.
-6. **Local-first.** No auth in v1. `deps.get_current_user` is a planned no-op slot; the schema and codebase leave room for a `users` table + `user_id` FK on every model without major refactors.
-7. **Recurring rules** are materialized into real `transactions` rows (not virtual). `last_generated_date` is the idempotency key. Auto-materialize runs on FastAPI startup if `RECURRING_AUTO_MATERIALIZE=true`.
+6. **Multi-user via Google SSO.** `deps.get_current_user` reads `user_id` from the session cookie. All CRUD functions accept `user_id` and scope queries accordingly. First-time Google users are auto-registered (upsert in callback).
+7. **Recurring rules** are materialized into real `transactions` rows (not virtual). `last_generated_date` is the idempotency key. Auto-materialize on startup removed (was a cross-user vulnerability); materialization is now per-user via `POST /api/recurring/materialize`.
 
 ---
 
@@ -177,6 +178,35 @@ cd backend && ruff check .
 | 13 | **Mobile hamburger navigation** | ✅ done |
 
 ## 9. Completed phases
+
+### Phase 9 — Auth (Google SSO)
+
+Shipped:
+- `app/models/user.py` — `User` ORM model with `email`, `name`, `google_sub`, `last_login_at`, `TimestampMixin`.
+- Alembic migration `2a3b4c5d6e7f` — creates `users` table; adds nullable `user_id` FK to `accounts`, `categories`, `budgets`, `recurring_rules`, `transactions`. Uses `batch_alter_table` for SQLite compatibility.
+- `app/routers/auth.py` — OAuth routes: `GET /auth/login` (redirect to Google), `GET /auth/google/callback` (upsert user, set session), `POST /auth/logout` (clear session), `GET /login` (login page).
+- `app/deps.py` — `get_current_user` reads `user_id` from session, returns `User` or raises `_NotAuthenticated`. Exception handler in `main.py` redirects browsers to `/login` on 401.
+- `app/templates.py` — added `_current_user()` template global function for profile display in header.
+- `app/templates/login.html` — "Sign in with Google" button.
+- `app/templates/base.html` — profile section (avatar initial + name + email) in desktop header and mobile nav; sign-out button in both locations.
+- `app/main.py` — `HTTPSRedirectMiddleware` gated behind `if not settings.is_development`; `_NotAuthenticated` exception handler added; `auth_router` mounted.
+- `app/config.py` — `google_client_id`, `google_client_secret`, `google_redirect_uri` settings; `FF_` env prefix; legacy env var migration for Google OAuth keys.
+- `.env.example` — added `FF_GOOGLE_CLIENT_ID`, `FF_GOOGLE_CLIENT_SECRET`, `FF_GOOGLE_REDIRECT_URI`, `FF_SESSION_SECRET`, `FF_SESSION_MAX_AGE_SECONDS`.
+- All CRUD functions scoped by `user_id` (accounts, transactions, categories, budgets, recurring rules).
+
+Key decisions:
+- First-time Google users are auto-registered via upsert in the OAuth callback — no separate signup page.
+- `HTTPSRedirectMiddleware` only active in production; disabled in development to allow plain HTTP.
+- Browser requests (Accept: text/html) get redirected to `/login` on auth failure; API requests get 401 JSON.
+- Session cookie expiry: 14 days (configurable via `FF_SESSION_MAX_AGE_SECONDS`).
+
+Verified:
+- ✅ `pytest -q` — all tests passing.
+- ✅ Unauthenticated browser request → 303 redirect to `/login`.
+- ✅ Google OAuth flow completes (requires valid `FF_GOOGLE_CLIENT_ID`/`FF_GOOGLE_CLIENT_SECRET`).
+- ✅ Profile section shows in header after login.
+- ✅ Sign-out clears session and redirects to `/login`.
+- ✅ HTTPS redirect disabled in development mode.
 
 ### Phase 7 — Predictions
 

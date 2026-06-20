@@ -16,7 +16,7 @@ from app.crud.recurring import (
     list_rules,
     update_rule,
 )
-from app.deps import get_db
+from app.deps import get_current_user, get_db
 from app.models.recurring import RecurringFrequency
 from app.schemas.recurring import RecurringRuleCreate, RecurringRuleRead, RecurringRuleUpdate
 from app.services.recurring import materialize_all, next_occurrences
@@ -27,8 +27,10 @@ router = APIRouter()
 
 
 @router.get("/recurring", response_class=HTMLResponse)
-async def recurring_list_page(request: Request, db: Session = Depends(get_db)):
-    rules = list_rules(db)
+async def recurring_list_page(
+    request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)
+):
+    rules = list_rules(db, user_id=user.id)
     previews: dict[int, list[str]] = {}
     for rule in rules:
         dates = next_occurrences(rule, count=5)
@@ -41,9 +43,11 @@ async def recurring_list_page(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/recurring/new", response_class=HTMLResponse)
-async def recurring_create_page(request: Request, db: Session = Depends(get_db)):
-    accounts = list_accounts(db)
-    categories = list_categories(db)
+async def recurring_create_page(
+    request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)
+):
+    accounts = list_accounts(db, user_id=user.id)
+    categories = list_categories(db, user_id=user.id)
     return templates.TemplateResponse(
         request,
         "recurring/form.html",
@@ -60,13 +64,13 @@ async def recurring_create_page(request: Request, db: Session = Depends(get_db))
 
 @router.get("/recurring/{rule_id}/edit", response_class=HTMLResponse)
 async def recurring_edit_page(
-    request: Request, rule_id: int, db: Session = Depends(get_db)
+    request: Request, rule_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)
 ):
-    rule = get_rule(db, rule_id)
+    rule = get_rule(db, rule_id, user_id=user.id)
     if rule is None:
         return HTMLResponse("Rule not found", status_code=404)
-    accounts = list_accounts(db)
-    categories = list_categories(db)
+    accounts = list_accounts(db, user_id=user.id)
+    categories = list_categories(db, user_id=user.id)
     return templates.TemplateResponse(
         request,
         "recurring/form.html",
@@ -97,6 +101,7 @@ async def recurring_create(
     day_of_week: str | None = Form(None),
     is_active: str = Form("true"),
     db: Session = Depends(get_db),
+    user=Depends(get_current_user),
 ):
     if amount <= 0:
         raise HTTPException(status_code=422, detail="Amount must be positive")
@@ -123,7 +128,7 @@ async def recurring_create(
         day_of_week=parsed_day_of_week,
         is_active=is_active_bool,
     )
-    rule = create_rule(db, data)
+    rule = create_rule(db, data, user_id=user.id)
     if is_htmx(request):
         return Response(status_code=200, headers={"HX-Redirect": "/recurring"})
     return RecurringRuleRead.model_validate(rule)
@@ -146,6 +151,7 @@ async def recurring_update(
     day_of_week: str | None = Form(None),
     is_active: str | None = Form(None),
     db: Session = Depends(get_db),
+    user=Depends(get_current_user),
 ):
     if amount is not None and amount <= 0:
         raise HTTPException(status_code=422, detail="Amount must be positive")
@@ -182,7 +188,7 @@ async def recurring_update(
         patch["is_active"] = is_active.lower() == "true"
 
     data = RecurringRuleUpdate(**patch)
-    rule = update_rule(db, rule_id, data)
+    rule = update_rule(db, rule_id, data, user_id=user.id)
     if rule is None:
         return HTMLResponse("Rule not found", status_code=404)
     if is_htmx(request):
@@ -195,8 +201,9 @@ async def recurring_delete(
     request: Request,
     rule_id: int,
     db: Session = Depends(get_db),
+    user=Depends(get_current_user),
 ):
-    ok, error_msg = delete_rule(db, rule_id)
+    ok, error_msg = delete_rule(db, rule_id, user_id=user.id)
     if not ok:
         if error_msg == "Rule not found":
             return HTMLResponse("Rule not found", status_code=404)
@@ -209,21 +216,25 @@ async def recurring_delete(
 
 
 @router.get("/api/recurring", response_model=list[RecurringRuleRead])
-async def recurring_list_json(db: Session = Depends(get_db)):
-    return list_rules(db)
+async def recurring_list_json(db: Session = Depends(get_db), user=Depends(get_current_user)):
+    return list_rules(db, user_id=user.id)
 
 
 @router.get("/api/recurring/{rule_id}", response_model=RecurringRuleRead)
-async def recurring_get_json(rule_id: int, db: Session = Depends(get_db)):
-    rule = get_rule(db, rule_id)
+async def recurring_get_json(
+    rule_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)
+):
+    rule = get_rule(db, rule_id, user_id=user.id)
     if rule is None:
         raise HTTPException(status_code=404, detail="Rule not found")
     return rule
 
 
 @router.get("/api/recurring/{rule_id}/preview")
-async def recurring_preview(rule_id: int, db: Session = Depends(get_db)):
-    rule = get_rule(db, rule_id)
+async def recurring_preview(
+    rule_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)
+):
+    rule = get_rule(db, rule_id, user_id=user.id)
     if rule is None:
         raise HTTPException(status_code=404, detail="Rule not found")
     dates = next_occurrences(rule, count=5)
@@ -231,7 +242,7 @@ async def recurring_preview(rule_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/api/recurring/materialize")
-async def recurring_materialize(db: Session = Depends(get_db)):
-    results = materialize_all(db)
+async def recurring_materialize(db: Session = Depends(get_db), user=Depends(get_current_user)):
+    results = materialize_all(db, user_id=user.id)
     total = sum(results.values())
     return {"total_materialized": total, "per_rule": results}

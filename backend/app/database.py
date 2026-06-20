@@ -15,11 +15,7 @@ _settings = get_settings()
 
 
 # SQLite needs this flag when used with FastAPI's threaded request handlers.
-_connect_args = (
-    {"check_same_thread": False}
-    if _settings.database_url.startswith("sqlite")
-    else {}
-)
+_connect_args = {"check_same_thread": False} if _settings.database_url.startswith("sqlite") else {}
 
 
 engine = create_engine(

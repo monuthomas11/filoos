@@ -13,9 +13,9 @@
 - **Predictions** of future expenses and account balances with confidence bands.
 - **Recurring transactions** (salary, rent, subscriptions) auto-materialized into the ledger.
 - **Budgets per category** with progress feedback on the dashboard.
-- **Local-first**, single user, simple to deploy on free hosting tiers later.
+- **Local-first**, multi-user with Google SSO (each user sees only their own data).
 
-Non-goals (v1): multi-user auth, multi-currency, bank integrations, receipt OCR, mobile apps.
+Non-goals (v1): multi-currency, bank integrations, receipt OCR, mobile apps.
 
 ## 2. Tech Stack & Rationale
 
@@ -123,6 +123,18 @@ FutureFunds/
 
 ## 5. Database Schema (SQLite via SQLAlchemy)
 
+### `users`
+
+| Column       | Type        | Notes                                       |
+|--------------|-------------|---------------------------------------------|
+| id           | INTEGER PK  |                                             |
+| email        | VARCHAR(255)| unique, indexed                             |
+| name         | VARCHAR(255)|                                             |
+| google_sub   | VARCHAR(64) | unique, indexed (Google OpenID `sub` claim) |
+| last_login_at| DATETIME    | nullable                                    |
+| created_at   | DATETIME    |                                             |
+| updated_at   | DATETIME    |                                             |
+
 ### `accounts`
 
 | Column           | Type        | Notes                                                |
@@ -211,6 +223,7 @@ Indexes: `(date)`, `(account_id, date)`.
 | Method | Path                          | Template                       |
 |--------|-------------------------------|--------------------------------|
 | GET    | `/`                           | `dashboard.html`               |
+| GET    | `/login`                      | `login.html`                   |
 | GET    | `/accounts`                   | `accounts/list.html`           |
 | GET    | `/accounts/new`               | `accounts/form.html` (new)     |
 | GET    | `/accounts/{id}/edit`         | `accounts/form.html` (edit)    |
@@ -219,6 +232,14 @@ Indexes: `(date)`, `(account_id, date)`.
 | GET    | `/categories`                 | `categories/list.html`         |
 | GET    | `/budgets`                    | `budgets/list.html`            |
 | GET    | `/recurring`                  | `recurring/list.html`          |
+
+### Auth routes
+
+| Method | Path                          | Response                            |
+|--------|-------------------------------|--------------------------------------|
+| GET    | `/auth/login`                 | 302 redirect to Google OAuth         |
+| GET    | `/auth/google/callback`       | Upsert user, set session, redirect to `/` |
+| POST   | `/auth/logout`                | Clear session, 303 redirect to `/login` |
 
 ### HTMX form-submit routes (redirect to list page)
 
@@ -392,7 +413,7 @@ The `Dockerfile` at the project root packages the app for any container-based ho
 
 ## 12. Future-Proofing (no work now, but design allows it)
 
-- **Multi-user**: add a `users` table and `user_id` FK on every model; switch `deps.get_current_user` from no-op to real session auth.
+- **Multi-user**: ✅ done — `users` table, `user_id` FK on every model, Google SSO via `authlib`.
 - **Multi-currency**: per-account `currency` is already in the schema; just add an FX rate cache and conversion in the analytics layer.
 - **Import / receipts**: `attachments` table; HTMX file upload is trivial with the existing stack.
 - **Production CSS**: switch from Tailwind Play CDN to compiled `app.compiled.css` via `scripts/build_css.sh` (uses `backend/tailwind.config.js`). Already set up; just needs the Tailwind standalone CLI on PATH.

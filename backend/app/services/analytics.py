@@ -43,7 +43,9 @@ def _resolve_date_range(
     return start, end
 
 
-def _get_period_bounds(year: int, month: int, period: BudgetPeriod) -> tuple[datetime.date, datetime.date]:
+def _get_period_bounds(
+    year: int, month: int, period: BudgetPeriod
+) -> tuple[datetime.date, datetime.date]:
     """Return (start, end) date bounds for the given period within the reference month."""
     if period == BudgetPeriod.MONTHLY:
         start = datetime.date(year, month, 1)
@@ -60,6 +62,7 @@ def _get_period_bounds(year: int, month: int, period: BudgetPeriod) -> tuple[dat
 
 def monthly_summary(
     db: Session,
+    user_id: int,
     year: int | None = None,
     month: int | None = None,
     start_date: str | None = None,
@@ -75,7 +78,7 @@ def monthly_summary(
     query = db.query(
         Transaction.type,
         func.coalesce(func.sum(Transaction.amount), 0),
-    )
+    ).filter(Transaction.user_id == user_id)
     if start is not None and end is not None:
         query = query.filter(Transaction.date >= start, Transaction.date < end)
     rows = query.group_by(Transaction.type).all()
@@ -101,6 +104,7 @@ def monthly_summary(
 
 def daily_spending(
     db: Session,
+    user_id: int,
     days: int = 30,
     start_date: str | None = None,
     end_date: str | None = None,
@@ -128,6 +132,7 @@ def daily_spending(
             Transaction.date >= start,
             Transaction.date < end,
             Transaction.type == TransactionType.EXPENSE,
+            Transaction.user_id == user_id,
         )
         .group_by(Transaction.date)
         .order_by(Transaction.date)
@@ -144,6 +149,7 @@ def daily_spending(
 
 def category_breakdown(
     db: Session,
+    user_id: int,
     year: int | None = None,
     month: int | None = None,
     start_date: str | None = None,
@@ -162,6 +168,7 @@ def category_breakdown(
         Category.color,
         func.coalesce(func.sum(func.abs(Transaction.amount)), 0),
     ).outerjoin(Transaction, Transaction.category_id == Category.id)
+    cat_query = cat_query.filter(Transaction.user_id == user_id)
     if start is not None and end is not None:
         cat_query = cat_query.filter(Transaction.date >= start, Transaction.date < end)
     cat_query = cat_query.filter(Transaction.type != TransactionType.TRANSFER)
@@ -175,7 +182,11 @@ def category_breakdown(
 
     if broken is not None:
         return [
-            {"label": name or "Uncategorized", "color": color or "#737373", "amount": f"{float(amount):.2f}"}
+            {
+                "label": name or "Uncategorized",
+                "color": color or "#737373",
+                "amount": f"{float(amount):.2f}",
+            }
             for name, color, amount in broken
             if amount > 0
         ]
@@ -184,7 +195,7 @@ def category_breakdown(
     fallback_query = db.query(
         Transaction.type,
         func.coalesce(func.sum(Transaction.amount), 0),
-    )
+    ).filter(Transaction.user_id == user_id)
     if start is not None and end is not None:
         fallback_query = fallback_query.filter(Transaction.date >= start, Transaction.date < end)
     rows = fallback_query.group_by(Transaction.type).all()
@@ -194,7 +205,11 @@ def category_breakdown(
         TransactionType.EXPENSE: "Expense",
         TransactionType.TRANSFER: "Transfer",
     }
-    palette = {TransactionType.INCOME: "#16a34a", TransactionType.EXPENSE: "#dc2626", TransactionType.TRANSFER: "#4f46e5"}
+    palette = {
+        TransactionType.INCOME: "#16a34a",
+        TransactionType.EXPENSE: "#dc2626",
+        TransactionType.TRANSFER: "#4f46e5",
+    }
     return [
         {"label": label_map[r[0]], "color": palette[r[0]], "amount": str(abs(r[1]))}
         for r in rows
@@ -204,6 +219,7 @@ def category_breakdown(
 
 def budget_progress(
     db: Session,
+    user_id: int,
     year: int | None = None,
     month: int | None = None,
     start_date: str | None = None,
@@ -220,11 +236,7 @@ def budget_progress(
     if month is None:
         month = today.month
 
-    budgets = (
-        db.query(Budget)
-        .filter(Budget.is_active.is_(True))
-        .all()
-    )
+    budgets = db.query(Budget).filter(Budget.is_active.is_(True), Budget.user_id == user_id).all()
 
     # If explicit date range is given, use it directly (ignore budget periods)
     if start_date and end_date:
@@ -243,6 +255,7 @@ def budget_progress(
                 Transaction.date >= s,
                 Transaction.date < e,
                 Transaction.type == TransactionType.EXPENSE,
+                Transaction.user_id == user_id,
             )
             .group_by(Transaction.category_id)
             .all()
@@ -251,6 +264,7 @@ def budget_progress(
     else:
         # Group budgets by period and fetch spending per group
         from collections import defaultdict
+
         by_period: dict[BudgetPeriod, list[Budget]] = defaultdict(list)
         for b in budgets:
             by_period[b.period].append(b)
@@ -269,6 +283,7 @@ def budget_progress(
                     Transaction.date >= period_start,
                     Transaction.date < period_end,
                     Transaction.type == TransactionType.EXPENSE,
+                    Transaction.user_id == user_id,
                 )
                 .group_by(Transaction.category_id)
                 .all()
@@ -279,23 +294,27 @@ def budget_progress(
     results: list[dict] = []
     for budget in budgets:
         spent_decimal = spending_map.get(budget.category_id, Decimal("0"))
-        percentage = round(float(spent_decimal / budget.amount) * 100, 1) if budget.amount > 0 else 0
+        percentage = (
+            round(float(spent_decimal / budget.amount) * 100, 1) if budget.amount > 0 else 0
+        )
         remaining = budget.amount - spent_decimal
 
         cat_name = budget.category.name if budget.category else "Unknown"
         cat_color = budget.category.color or "#4f46e5"
 
-        results.append({
-            "budget_id": budget.id,
-            "category_id": budget.category_id,
-            "category_name": cat_name,
-            "category_color": cat_color,
-            "amount": f"{budget.amount:.2f}",
-            "spent": f"{spent_decimal:.2f}",
-            "percentage": percentage,
-            "remaining": f"{remaining:.2f}",
-            "over_budget": remaining < 0,
-        })
+        results.append(
+            {
+                "budget_id": budget.id,
+                "category_id": budget.category_id,
+                "category_name": cat_name,
+                "category_color": cat_color,
+                "amount": f"{budget.amount:.2f}",
+                "spent": f"{spent_decimal:.2f}",
+                "percentage": percentage,
+                "remaining": f"{remaining:.2f}",
+                "over_budget": remaining < 0,
+            }
+        )
 
     return sorted(results, key=lambda r: r["category_name"])
 
@@ -303,12 +322,13 @@ def budget_progress(
 def balance_history(
     db: Session,
     account_id: int,
+    user_id: int,
     days: int = 90,
 ) -> list[dict]:
     """Return a daily running-balance series for *account_id* over *days* days."""
     from app.crud.account import get_account
 
-    account = get_account(db, account_id)
+    account = get_account(db, account_id, user_id=user_id)
     if account is None:
         return []
 
@@ -330,15 +350,10 @@ def balance_history(
         .all()
     )
 
-    prior_sum: Decimal = (
-        db.query(func.coalesce(func.sum(Transaction.amount), 0))
-        .filter(
-            Transaction.account_id == account_id,
-            Transaction.date < start,
-        )
-        .scalar()
-        or Decimal("0")
-    )
+    prior_sum: Decimal = db.query(func.coalesce(func.sum(Transaction.amount), 0)).filter(
+        Transaction.account_id == account_id,
+        Transaction.date < start,
+    ).scalar() or Decimal("0")
 
     running = account.opening_balance + prior_sum
     date_map = {r[0]: r[1] for r in rows}

@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* FutureFunds - small overrides + transitions.
    Tailwind handles the bulk of styling; this file is for things Tailwind
    utility classes can't express as cleanly. */
@@ -32,5 +36,3 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Hide the Tailwind Play CDN warning banner in dev (purely cosmetic). */
-#tailwind-play-cdn-warning { display: none !important; }

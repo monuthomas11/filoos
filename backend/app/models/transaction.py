@@ -28,12 +28,9 @@ class Transaction(Base, TimestampMixin):
     __tablename__ = "transactions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    account_id: Mapped[int] = mapped_column(
-        ForeignKey("accounts.id"), nullable=False, index=True
-    )
-    category_id: Mapped[int | None] = mapped_column(
-        ForeignKey("categories.id"), nullable=True
-    )
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
+    account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False, index=True)
+    category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"), nullable=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     type: Mapped[TransactionType] = mapped_column(
         SAEnum(TransactionType, name="transaction_type_enum", create_constraint=True),

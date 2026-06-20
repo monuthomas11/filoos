@@ -65,9 +65,7 @@ def test_list_categories_filter_by_type(db_session: Session):
 
 def test_update_category(db_session: Session):
     cat = create_category(db_session, CategoryCreate(name="Old", type=CategoryType.EXPENSE))
-    updated = update_category(
-        db_session, cat.id, CategoryUpdate(name="New", color="#dc2626")
-    )
+    updated = update_category(db_session, cat.id, CategoryUpdate(name="New", color="#dc2626"))
     assert updated is not None
     assert updated.name == "New"
     assert updated.color == "#dc2626"
@@ -98,8 +96,9 @@ def test_delete_nonexistent_category(db_session: Session):
 
 
 def test_category_list_page(client: TestClient):
-    client.post("/categories", data={"name": "Food", "type": "expense"},
-                headers={"HX-Request": "true"})
+    client.post(
+        "/categories", data={"name": "Food", "type": "expense"}, headers={"HX-Request": "true"}
+    )
     response = client.get("/categories")
     assert response.status_code == 200
     assert "Food" in response.text
@@ -112,8 +111,9 @@ def test_category_new_page(client: TestClient):
 
 
 def test_category_edit_page(client: TestClient):
-    client.post("/categories", data={"name": "Edit Me", "type": "expense"},
-                headers={"HX-Request": "true"})
+    client.post(
+        "/categories", data={"name": "Edit Me", "type": "expense"}, headers={"HX-Request": "true"}
+    )
     cats = client.get("/api/categories").json()
     cat_id = cats[0]["id"]
 
@@ -144,8 +144,9 @@ def test_create_category_via_htmx(client: TestClient):
 
 
 def test_update_category_via_htmx(client: TestClient):
-    client.post("/categories", data={"name": "Before", "type": "expense"},
-                headers={"HX-Request": "true"})
+    client.post(
+        "/categories", data={"name": "Before", "type": "expense"}, headers={"HX-Request": "true"}
+    )
     response = client.patch(
         "/categories/1",
         data={"name": "After"},
@@ -156,8 +157,9 @@ def test_update_category_via_htmx(client: TestClient):
 
 
 def test_delete_category_via_htmx(client: TestClient):
-    client.post("/categories", data={"name": "Delete Me", "type": "expense"},
-                headers={"HX-Request": "true"})
+    client.post(
+        "/categories", data={"name": "Delete Me", "type": "expense"}, headers={"HX-Request": "true"}
+    )
     cats = client.get("/api/categories").json()
     cat_id = cats[0]["id"]
 
@@ -175,8 +177,9 @@ def test_delete_category_via_htmx(client: TestClient):
 
 
 def test_list_categories_json(client: TestClient):
-    client.post("/categories", data={"name": "JSON Cat", "type": "income"},
-                headers={"HX-Request": "true"})
+    client.post(
+        "/categories", data={"name": "JSON Cat", "type": "income"}, headers={"HX-Request": "true"}
+    )
     response = client.get("/api/categories")
     assert response.status_code == 200
     data = response.json()
@@ -185,8 +188,9 @@ def test_list_categories_json(client: TestClient):
 
 
 def test_get_category_json(client: TestClient):
-    client.post("/categories", data={"name": "Single", "type": "expense"},
-                headers={"HX-Request": "true"})
+    client.post(
+        "/categories", data={"name": "Single", "type": "expense"}, headers={"HX-Request": "true"}
+    )
     cats = client.get("/api/categories").json()
     cat_id = cats[0]["id"]
 

@@ -9,6 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi.templating import Jinja2Templates
+from starlette.requests import Request
 
 from app.config import get_settings
 
@@ -22,3 +23,21 @@ templates.env.globals.update(
     currency_symbol=settings.currency_symbol,
     app_env=settings.app_env,
 )
+
+
+def _current_user(request: Request):
+    """Return the current User or None — available in all templates as ``current_user``."""
+    from app.database import session_scope
+    from app.models.user import User
+
+    user_id = request.session.get("user_id")
+    if not user_id:
+        return None
+    with session_scope() as db:
+        user = db.get(User, user_id)
+        if user:
+            db.expunge(user)
+        return user
+
+
+templates.env.globals["current_user"] = _current_user

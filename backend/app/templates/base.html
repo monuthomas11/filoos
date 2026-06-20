@@ -6,38 +6,6 @@
   <title>{{ title or "Dashboard" }} · {{ app_name }}</title>
   <meta name="description" content="FutureFunds - personal expense tracker" />
 
-  <!-- Tailwind Play CDN (Phase 1; will be replaced with a compiled stylesheet in production). -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      darkMode: 'class',
-      theme: {
-        extend: {
-          fontFamily: {
-            sans: [
-              'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"',
-              'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'
-            ],
-            mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
-          },
-          colors: {
-            // Single-accent palette: indigo-600. Add aliases used in templates.
-            accent: {
-              50:  '#eef2ff',
-              100: '#e0e7ff',
-              500: '#6366f1',
-              600: '#4f46e5',
-              700: '#4338ca',
-            },
-            positive: { 500: '#22c55e', 600: '#16a34a' },
-            negative: { 500: '#ef4444', 600: '#dc2626' },
-          },
-          borderRadius: { 'lg': '0.5rem', 'xl': '0.75rem' },
-        },
-      },
-    };
-  </script>
-
   <!-- HTMX -->
   <script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
 
@@ -47,7 +15,7 @@
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
 
-  <link rel="stylesheet" href="{{ url_for('static', path='css/app.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static', path='css/app.compiled.css') }}" />
   <script src="{{ url_for('static', path='js/app.js') }}"></script>
 
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%234f46e5'%3E%3Cpath d='M3 13h2v-2H3v2zm0 4h2v-2H3v2zm0-8h2V7H3v2zm4 4h14v-2H7v2zm0 4h14v-2H7v2zM7 7v2h14V7H7z'/%3E%3C/svg%3E" />
@@ -89,6 +57,34 @@
           <svg x-show="dark" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
         </button>
 
+        <!-- Profile + Sign out -->
+        {% set cu = current_user(request) %}
+        {% if cu %}
+        <div class="flex items-center gap-2">
+          <div class="hidden items-center gap-2 sm:flex">
+            {% if cu.avatar_url %}
+            <img src="{{ cu.avatar_url }}" alt="" class="h-8 w-8 rounded-full object-cover" />
+            {% else %}
+            <span class="inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent-600 text-xs font-bold text-white">{{ cu.name[:1] | upper }}</span>
+            {% endif %}
+            <div class="min-w-0">
+              <p class="truncate text-sm font-medium leading-tight text-neutral-900 dark:text-neutral-100">{{ cu.name }}</p>
+              <p class="truncate text-xs leading-tight text-neutral-500 dark:text-neutral-400">{{ cu.email }}</p>
+            </div>
+          </div>
+          <form method="post" action="/auth/logout">
+            <button
+              type="submit"
+              class="inline-flex h-9 items-center gap-1.5 rounded-md border border-neutral-200 px-3 text-sm text-neutral-700 hover:bg-neutral-100 dark:border-neutral-800 dark:text-neutral-300 dark:hover:bg-neutral-900"
+              title="Sign out"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+              <span class="hidden sm:inline">Sign out</span>
+            </button>
+          </form>
+        </div>
+        {% endif %}
+
         <!-- Hamburger (mobile only) -->
         <button
           type="button"
@@ -122,12 +118,28 @@
       aria-label="Mobile navigation"
     >
       <div class="flex flex-col gap-1">
+        {% if cu %}
+        <div class="flex items-center gap-3 rounded-lg px-3 py-2.5">
+          {% if cu.avatar_url %}
+          <img src="{{ cu.avatar_url }}" alt="" class="h-9 w-9 rounded-full object-cover" />
+          {% else %}
+          <span class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-accent-600 text-sm font-bold text-white">{{ cu.name[:1] | upper }}</span>
+          {% endif %}
+          <div class="min-w-0">
+            <p class="truncate text-sm font-medium text-neutral-900 dark:text-neutral-100">{{ cu.name }}</p>
+            <p class="truncate text-xs text-neutral-500 dark:text-neutral-400">{{ cu.email }}</p>
+          </div>
+        </div>
+        {% endif %}
         <a href="/" @click="mobileOpen = false" class="rounded-lg px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-900">Dashboard</a>
         <a href="/accounts" @click="mobileOpen = false" class="rounded-lg px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-900">Accounts</a>
         <a href="/transactions" @click="mobileOpen = false" class="rounded-lg px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-900">Transactions</a>
         <a href="/categories" @click="mobileOpen = false" class="rounded-lg px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-900">Categories</a>
         <a href="/budgets" @click="mobileOpen = false" class="rounded-lg px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-900">Budgets</a>
         <a href="/recurring" @click="mobileOpen = false" class="rounded-lg px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-900">Recurring</a>
+        <form method="post" action="/auth/logout">
+          <button type="submit" @click="mobileOpen = false" class="w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-900">Sign out</button>
+        </form>
       </div>
     </nav>
   </header>

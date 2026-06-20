@@ -1,0 +1,65 @@
+# --- Version control ---
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# --- Python ---
+.venv/
+venv/
+env/
+ENV/
+**/__pycache__/
+**/*.py[cod]
+**/*.egg-info/
+**/*.egg
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+
+# --- Node (Tailwind build) ---
+# node_modules is rebuilt inside the Docker builder stage.
+backend/node_modules/
+backend/.bin/
+backend/app/static/css/app.compiled.css
+backend/npm-debug.log*
+
+# --- Local secrets & runtime data ---
+.env
+.env.local
+.env.*.local
+data/*.db
+data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+
+# --- Agent / IDE config ---
+.agents/
+
+# --- Editor / OS ---
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# --- Tests / docs that don't belong in the image ---
+README.md
+STATUS.md
+PLAN.md
+REVIEW_CHANGES.md
+deployment.md
+docs/
+.claude/
+.opencode/
+plans/
+findings.md
+review-comments.txt
+Plan_reporting.md
+Plan_trans.md

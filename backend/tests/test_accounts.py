@@ -111,8 +111,12 @@ def test_delete_account_with_transactions_fails(db_session: Session):
 
     account = create_account(db_session, AccountCreate(name="Has Txns", type=AccountType.BANK))
     create_transaction(
-        db_session, account.id, Decimal("-100"),
-        TransactionType.EXPENSE, "Test", datetime.date.today(),
+        db_session,
+        account.id,
+        Decimal("-100"),
+        TransactionType.EXPENSE,
+        "Test",
+        datetime.date.today(),
     )
     ok, err = delete_account(db_session, account.id)
     assert ok is False
@@ -134,7 +138,9 @@ def test_compute_balance_defaults_to_opening(db_session: Session):
 
 def test_account_list_page(client: TestClient):
     # Seed via the API itself (avoids sharing in-memory session across threads).
-    client.post("/accounts", data={"name": "Seeded", "type": "bank"}, headers={"HX-Request": "true"})
+    client.post(
+        "/accounts", data={"name": "Seeded", "type": "bank"}, headers={"HX-Request": "true"}
+    )
     response = client.get("/accounts")
     assert response.status_code == 200
     assert "Seeded" in response.text
@@ -148,7 +154,9 @@ def test_account_new_page(client: TestClient):
 
 def test_account_edit_page(client: TestClient):
     # Create via API first.
-    client.post("/accounts", data={"name": "Edit Me", "type": "credit_card"}, headers={"HX-Request": "true"})
+    client.post(
+        "/accounts", data={"name": "Edit Me", "type": "credit_card"}, headers={"HX-Request": "true"}
+    )
     # Find the account via the JSON API.
     accounts = client.get("/api/accounts").json()
     account_id = accounts[0]["id"]
@@ -186,7 +194,9 @@ def test_create_account_via_htmx(client: TestClient):
 
 def test_update_account_via_htmx(client: TestClient):
     # Create first.
-    r = client.post("/accounts", data={"name": "Before", "type": "bank"}, headers={"HX-Request": "true"})
+    r = client.post(
+        "/accounts", data={"name": "Before", "type": "bank"}, headers={"HX-Request": "true"}
+    )
     assert r.headers.get("HX-Redirect") == "/accounts"
 
     response = client.patch(
@@ -200,7 +210,9 @@ def test_update_account_via_htmx(client: TestClient):
 
 def test_delete_account_via_htmx(client: TestClient):
     # Create first.
-    client.post("/accounts", data={"name": "Delete Me", "type": "cash"}, headers={"HX-Request": "true"})
+    client.post(
+        "/accounts", data={"name": "Delete Me", "type": "cash"}, headers={"HX-Request": "true"}
+    )
     accounts = client.get("/api/accounts").json()
     account_id = accounts[0]["id"]
 
@@ -214,12 +226,20 @@ def test_delete_account_via_htmx(client: TestClient):
 
 def test_delete_account_with_transactions_via_htmx(client: TestClient):
     """Deleting an account with transactions via HTMX should return 409."""
-    client.post("/accounts", data={"name": "Has Txns", "type": "bank"},
-                headers={"HX-Request": "true"})
-    client.post("/transactions", data={
-        "type": "expense", "account_id": "1", "amount": "100",
-        "description": "Test", "date": "2026-06-01",
-    }, headers={"HX-Request": "true"})
+    client.post(
+        "/accounts", data={"name": "Has Txns", "type": "bank"}, headers={"HX-Request": "true"}
+    )
+    client.post(
+        "/transactions",
+        data={
+            "type": "expense",
+            "account_id": "1",
+            "amount": "100",
+            "description": "Test",
+            "date": "2026-06-01",
+        },
+        headers={"HX-Request": "true"},
+    )
 
     accounts = client.get("/api/accounts").json()
     account_id = accounts[0]["id"]
@@ -238,7 +258,9 @@ def test_delete_account_with_transactions_via_htmx(client: TestClient):
 
 
 def test_list_accounts_json(client: TestClient):
-    client.post("/accounts", data={"name": "JSON Acct", "type": "savings"}, headers={"HX-Request": "true"})
+    client.post(
+        "/accounts", data={"name": "JSON Acct", "type": "savings"}, headers={"HX-Request": "true"}
+    )
     response = client.get("/api/accounts")
     assert response.status_code == 200
     data = response.json()
@@ -247,7 +269,9 @@ def test_list_accounts_json(client: TestClient):
 
 
 def test_get_account_json(client: TestClient):
-    client.post("/accounts", data={"name": "Single", "type": "investment"}, headers={"HX-Request": "true"})
+    client.post(
+        "/accounts", data={"name": "Single", "type": "investment"}, headers={"HX-Request": "true"}
+    )
     accounts = client.get("/api/accounts").json()
     account_id = accounts[0]["id"]
 

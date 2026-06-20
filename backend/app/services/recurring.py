@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+import logging
 
 from sqlalchemy.orm import Session
 
@@ -8,6 +9,8 @@ from app.crud.recurring import update_last_generated_date
 from app.crud.transaction import create_transaction
 from app.models.recurring import RecurringFrequency, RecurringRule, RecurringTransactionType
 from app.models.transaction import TransactionType
+
+logger = logging.getLogger("app.services.recurring")
 
 
 def _next_date(
@@ -75,11 +78,12 @@ def next_occurrences(rule: RecurringRule, count: int = 5) -> list[datetime.date]
     return dates
 
 
-def materialize_rule(db: Session, rule: RecurringRule) -> int:
+def materialize_rule(db: Session, rule: RecurringRule, user_id: int | None = None) -> int:
     today = datetime.date.today()
     current = rule.last_generated_date or rule.start_date
     end = min(rule.end_date or datetime.date.max, today)
     count = 0
+    tx_user_id = user_id or rule.user_id
 
     while current < end:
         next_d = _next_date(
@@ -101,6 +105,7 @@ def materialize_rule(db: Session, rule: RecurringRule) -> int:
             date=next_d,
             category_id=rule.category_id,
             recurring_rule_id=rule.id,
+            user_id=tx_user_id,
             commit=False,
         )
         count += 1
@@ -109,15 +114,37 @@ def materialize_rule(db: Session, rule: RecurringRule) -> int:
     if count > 0:
         db.commit()
         update_last_generated_date(db, rule.id, current)
+        logger.info(
+            "materialized recurring rule",
+            extra={
+                "rule_id": rule.id,
+                "rule_description": rule.description,
+                "generated": count,
+                "up_to": current.isoformat(),
+            },
+        )
+    else:
+        logger.debug(
+            "recurring rule up to date",
+            extra={"rule_id": rule.id, "rule_description": rule.description},
+        )
 
     return count
 
 
-def materialize_all(db: Session) -> dict[int, int]:
+def materialize_all(db: Session, user_id: int | None = None) -> dict[int, int]:
     from app.crud.recurring import list_rules
 
-    rules = list_rules(db, active_only=True)
+    rules = list_rules(db, active_only=True, user_id=user_id)
+    logger.info("materializing recurring rules", extra={"rule_count": len(rules)})
     results: dict[int, int] = {}
     for rule in rules:
-        results[rule.id] = materialize_rule(db, rule)
+        try:
+            results[rule.id] = materialize_rule(db, rule, user_id=user_id)
+        except Exception:
+            logger.exception(
+                "failed to materialize recurring rule",
+                extra={"rule_id": rule.id, "rule_description": rule.description},
+            )
+            results[rule.id] = 0
     return results

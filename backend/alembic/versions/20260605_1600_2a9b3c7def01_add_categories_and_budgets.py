@@ -45,7 +45,9 @@ def upgrade() -> None:
         sa.Column("amount", sa.Numeric(precision=18, scale=2), nullable=False),
         sa.Column(
             "period",
-            sa.Enum("WEEKLY", "MONTHLY", "YEARLY", name="budget_period_enum", create_constraint=True),
+            sa.Enum(
+                "WEEKLY", "MONTHLY", "YEARLY", name="budget_period_enum", create_constraint=True
+            ),
             nullable=False,
         ),
         sa.Column("start_date", sa.Date(), nullable=False),

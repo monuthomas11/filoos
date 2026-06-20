@@ -5,7 +5,7 @@ from __future__ import annotations
 import enum
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Numeric, String
+from sqlalchemy import Boolean, ForeignKey, Numeric, String
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -39,6 +39,7 @@ class Account(Base, TimestampMixin):
     __tablename__ = "accounts"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
     type: Mapped[AccountType] = mapped_column(
         SAEnum(AccountType, name="account_type_enum", create_constraint=True),

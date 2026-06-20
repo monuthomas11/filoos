@@ -29,4 +29,6 @@ def parse_date_or_422(date_str: str | None, field_name: str = "date") -> datetim
     try:
         return datetime.date.fromisoformat(date_str)
     except ValueError:
-        raise HTTPException(status_code=422, detail=f"Invalid {field_name} format (use YYYY-MM-DD)") from None
+        raise HTTPException(
+            status_code=422, detail=f"Invalid {field_name} format (use YYYY-MM-DD)"
+        ) from None

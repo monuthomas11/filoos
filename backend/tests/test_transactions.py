@@ -23,12 +23,16 @@ from app.crud.transaction import (
 )
 from app.models.account import Account, AccountType
 from app.models.transaction import TransactionType
+from app.models.user import User
 from app.schemas.account import AccountCreate
 
 
-def _seed_account(db: Session, name: str = "Test Account",
-                  type_: AccountType = AccountType.BANK,
-                  balance: str = "0") -> Account:
+def _seed_account(
+    db: Session,
+    name: str = "Test Account",
+    type_: AccountType = AccountType.BANK,
+    balance: str = "0",
+) -> Account:
     return create_account(
         db,
         AccountCreate(name=name, type=type_, opening_balance=Decimal(balance)),
@@ -85,27 +89,44 @@ def test_list_transactions_with_filters(db_session: Session):
     acct1 = _seed_account(db_session, "A", balance="1000")
     acct2 = _seed_account(db_session, "B", balance="2000")
 
-    create_transaction(db_session, acct1.id, Decimal("-50"), TransactionType.EXPENSE,
-                       "Coffee", datetime.date(2026, 6, 1))
-    create_transaction(db_session, acct1.id, Decimal("200"), TransactionType.INCOME,
-                       "Freelance", datetime.date(2026, 6, 2))
-    create_transaction(db_session, acct2.id, Decimal("-30"), TransactionType.EXPENSE,
-                       "Snacks", datetime.date(2026, 6, 1))
+    create_transaction(
+        db_session,
+        acct1.id,
+        Decimal("-50"),
+        TransactionType.EXPENSE,
+        "Coffee",
+        datetime.date(2026, 6, 1),
+    )
+    create_transaction(
+        db_session,
+        acct1.id,
+        Decimal("200"),
+        TransactionType.INCOME,
+        "Freelance",
+        datetime.date(2026, 6, 2),
+    )
+    create_transaction(
+        db_session,
+        acct2.id,
+        Decimal("-30"),
+        TransactionType.EXPENSE,
+        "Snacks",
+        datetime.date(2026, 6, 1),
+    )
 
     assert len(list_transactions(db_session)) == 3
     assert len(list_transactions(db_session, account_id=acct1.id)) == 2
     assert len(list_transactions(db_session, type_filter=TransactionType.INCOME)) == 1
-    assert len(list_transactions(
-        db_session, date_from=datetime.date(2026, 6, 2))) == 1
-    assert len(list_transactions(
-        db_session, date_to=datetime.date(2026, 6, 1))) == 2
+    assert len(list_transactions(db_session, date_from=datetime.date(2026, 6, 2))) == 1
+    assert len(list_transactions(db_session, date_to=datetime.date(2026, 6, 1))) == 2
     assert len(list_transactions(db_session, description="coffee")) == 1
 
 
 def test_update_transaction(db_session: Session):
     acct = _seed_account(db_session, "Test")
-    tx = create_transaction(db_session, acct.id, Decimal("-100"),
-                            TransactionType.EXPENSE, "Old", datetime.date.today())
+    tx = create_transaction(
+        db_session, acct.id, Decimal("-100"), TransactionType.EXPENSE, "Old", datetime.date.today()
+    )
     updated = update_transaction(db_session, tx.id, description="New")
     assert updated is not None
     assert updated.description == "New"
@@ -118,8 +139,14 @@ def test_update_nonexistent_transaction(db_session: Session):
 
 def test_delete_transaction(db_session: Session):
     acct = _seed_account(db_session, "Test")
-    tx = create_transaction(db_session, acct.id, Decimal("-50"),
-                            TransactionType.EXPENSE, "Delete Me", datetime.date.today())
+    tx = create_transaction(
+        db_session,
+        acct.id,
+        Decimal("-50"),
+        TransactionType.EXPENSE,
+        "Delete Me",
+        datetime.date.today(),
+    )
     assert delete_transaction(db_session, tx.id) is True
     assert get_transaction(db_session, tx.id) is None
 
@@ -136,10 +163,22 @@ def test_delete_nonexistent_transaction(db_session: Session):
 def test_compute_account_balance(db_session: Session):
     acct = _seed_account(db_session, "Test", balance="1000")
     # opening is 1000, add an expense and income
-    create_transaction(db_session, acct.id, Decimal("-200"),
-                       TransactionType.EXPENSE, "Spend", datetime.date(2026, 6, 1))
-    create_transaction(db_session, acct.id, Decimal("500"),
-                       TransactionType.INCOME, "Earn", datetime.date(2026, 6, 2))
+    create_transaction(
+        db_session,
+        acct.id,
+        Decimal("-200"),
+        TransactionType.EXPENSE,
+        "Spend",
+        datetime.date(2026, 6, 1),
+    )
+    create_transaction(
+        db_session,
+        acct.id,
+        Decimal("500"),
+        TransactionType.INCOME,
+        "Earn",
+        datetime.date(2026, 6, 2),
+    )
     assert compute_account_balance(acct, db_session) == Decimal("1300")
 
 
@@ -186,13 +225,28 @@ def test_create_transfer(db_session: Session):
 # ------------------------------------------------------------------
 
 
+def _seed_user(db: Session) -> int:
+    user = User(email="test@example.com", name="Test User", google_sub="test-sub")
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user.id
+
+
 def test_get_recent_transactions(db_session: Session):
+    uid = _seed_user(db_session)
     acct = _seed_account(db_session, "Test")
     for i in range(15):
-        create_transaction(db_session, acct.id, Decimal(f"-{i+1}"),
-                           TransactionType.EXPENSE, f"Txn {i}",
-                           datetime.date(2026, 6, min(i + 1, 30)))
-    recent = get_recent_transactions(db_session, limit=10)
+        create_transaction(
+            db_session,
+            acct.id,
+            Decimal(f"-{i + 1}"),
+            TransactionType.EXPENSE,
+            f"Txn {i}",
+            datetime.date(2026, 6, min(i + 1, 30)),
+            user_id=uid,
+        )
+    recent = get_recent_transactions(db_session, limit=10, user_id=uid)
     assert len(recent) == 10
     # Most recent first
     assert recent[0].description == "Txn 14"
@@ -212,8 +266,9 @@ def test_transaction_list_page(client: TestClient):
 
 def test_transaction_new_page(client: TestClient):
     # Seed an account first
-    client.post("/accounts", data={"name": "My Account", "type": "bank"},
-                headers={"HX-Request": "true"})
+    client.post(
+        "/accounts", data={"name": "My Account", "type": "bank"}, headers={"HX-Request": "true"}
+    )
     response = client.get("/transactions/new")
     assert response.status_code == 200
     assert "New transaction" in response.text
@@ -222,16 +277,19 @@ def test_transaction_new_page(client: TestClient):
 
 def test_transaction_edit_page(client: TestClient):
     # Seed
-    client.post("/accounts", data={"name": "Acct", "type": "cash"},
-                headers={"HX-Request": "true"})
+    client.post("/accounts", data={"name": "Acct", "type": "cash"}, headers={"HX-Request": "true"})
     # Create a transaction
-    client.post("/transactions", data={
-        "type": "expense",
-        "account_id": "1",
-        "amount": "100",
-        "description": "Edit Me",
-        "date": "2026-06-01",
-    }, headers={"HX-Request": "true"})
+    client.post(
+        "/transactions",
+        data={
+            "type": "expense",
+            "account_id": "1",
+            "amount": "100",
+            "description": "Edit Me",
+            "date": "2026-06-01",
+        },
+        headers={"HX-Request": "true"},
+    )
     # Find it via the JSON API.
     txs = client.get("/api/transactions").json()
     tx_id = txs[0]["id"]
@@ -253,79 +311,108 @@ def test_transaction_edit_page_not_found(client: TestClient):
 
 
 def test_create_expense_via_htmx(client: TestClient):
-    client.post("/accounts", data={"name": "Wallet", "type": "cash"},
-                headers={"HX-Request": "true"})
-    response = client.post("/transactions", data={
-        "type": "expense",
-        "account_id": "1",
-        "amount": "75.50",
-        "description": "Lunch",
-        "date": "2026-06-01",
-    }, headers={"HX-Request": "true"})
+    client.post(
+        "/accounts", data={"name": "Wallet", "type": "cash"}, headers={"HX-Request": "true"}
+    )
+    response = client.post(
+        "/transactions",
+        data={
+            "type": "expense",
+            "account_id": "1",
+            "amount": "75.50",
+            "description": "Lunch",
+            "date": "2026-06-01",
+        },
+        headers={"HX-Request": "true"},
+    )
     assert response.status_code == 200
     assert response.headers.get("HX-Redirect") == "/transactions"
 
 
 def test_create_income_via_htmx(client: TestClient):
-    client.post("/accounts", data={"name": "Bank", "type": "bank"},
-                headers={"HX-Request": "true"})
-    response = client.post("/transactions", data={
-        "type": "income",
-        "account_id": "1",
-        "amount": "5000",
-        "description": "Salary",
-        "date": "2026-06-01",
-    }, headers={"HX-Request": "true"})
+    client.post("/accounts", data={"name": "Bank", "type": "bank"}, headers={"HX-Request": "true"})
+    response = client.post(
+        "/transactions",
+        data={
+            "type": "income",
+            "account_id": "1",
+            "amount": "5000",
+            "description": "Salary",
+            "date": "2026-06-01",
+        },
+        headers={"HX-Request": "true"},
+    )
     assert response.status_code == 200
     assert response.headers.get("HX-Redirect") == "/transactions"
 
 
 def test_create_transfer_via_htmx(client: TestClient):
-    client.post("/accounts", data={"name": "Savings", "type": "savings"},
-                headers={"HX-Request": "true"})
-    client.post("/accounts", data={"name": "Checking", "type": "bank"},
-                headers={"HX-Request": "true"})
-    response = client.post("/transactions", data={
-        "type": "transfer",
-        "from_account_id": "1",
-        "to_account_id": "2",
-        "amount": "2000",
-        "description": "Move money",
-        "date": "2026-06-01",
-    }, headers={"HX-Request": "true"})
+    client.post(
+        "/accounts", data={"name": "Savings", "type": "savings"}, headers={"HX-Request": "true"}
+    )
+    client.post(
+        "/accounts", data={"name": "Checking", "type": "bank"}, headers={"HX-Request": "true"}
+    )
+    response = client.post(
+        "/transactions",
+        data={
+            "type": "transfer",
+            "from_account_id": "1",
+            "to_account_id": "2",
+            "amount": "2000",
+            "description": "Move money",
+            "date": "2026-06-01",
+        },
+        headers={"HX-Request": "true"},
+    )
     assert response.status_code == 200
     assert response.headers.get("HX-Redirect") == "/transactions"
 
 
 def test_update_transaction_via_htmx(client: TestClient):
-    client.post("/accounts", data={"name": "Acct", "type": "cash"},
-                headers={"HX-Request": "true"})
-    client.post("/transactions", data={
-        "type": "expense", "account_id": "1", "amount": "50",
-        "description": "Before", "date": "2026-06-01",
-    }, headers={"HX-Request": "true"})
+    client.post("/accounts", data={"name": "Acct", "type": "cash"}, headers={"HX-Request": "true"})
+    client.post(
+        "/transactions",
+        data={
+            "type": "expense",
+            "account_id": "1",
+            "amount": "50",
+            "description": "Before",
+            "date": "2026-06-01",
+        },
+        headers={"HX-Request": "true"},
+    )
     txs = client.get("/api/transactions").json()
     tx_id = txs[0]["id"]
 
-    response = client.patch(f"/transactions/{tx_id}", data={
-        "description": "After",
-    }, headers={"HX-Request": "true"})
+    response = client.patch(
+        f"/transactions/{tx_id}",
+        data={
+            "description": "After",
+        },
+        headers={"HX-Request": "true"},
+    )
     assert response.status_code == 200
     assert response.headers.get("HX-Redirect") == "/transactions"
 
 
 def test_delete_transaction_via_htmx(client: TestClient):
-    client.post("/accounts", data={"name": "Acct", "type": "cash"},
-                headers={"HX-Request": "true"})
-    client.post("/transactions", data={
-        "type": "expense", "account_id": "1", "amount": "25",
-        "description": "Delete Me", "date": "2026-06-01",
-    }, headers={"HX-Request": "true"})
+    client.post("/accounts", data={"name": "Acct", "type": "cash"}, headers={"HX-Request": "true"})
+    client.post(
+        "/transactions",
+        data={
+            "type": "expense",
+            "account_id": "1",
+            "amount": "25",
+            "description": "Delete Me",
+            "date": "2026-06-01",
+        },
+        headers={"HX-Request": "true"},
+    )
     txs = client.get("/api/transactions").json()
     tx_id = txs[0]["id"]
 
-    response = client.delete(f"/transactions/{tx_id}",
-                             headers={"HX-Request": "true"})
+    response = client.delete(f"/transactions/{tx_id}", headers={"HX-Request": "true"})
     assert response.status_code == 200
     assert response.headers.get("HX-Trigger") == "transaction-deleted"
 
@@ -336,12 +423,18 @@ def test_delete_transaction_via_htmx(client: TestClient):
 
 
 def test_list_transactions_json(client: TestClient):
-    client.post("/accounts", data={"name": "Acct", "type": "bank"},
-                headers={"HX-Request": "true"})
-    client.post("/transactions", data={
-        "type": "expense", "account_id": "1", "amount": "30",
-        "description": "Bus fare", "date": "2026-06-01",
-    }, headers={"HX-Request": "true"})
+    client.post("/accounts", data={"name": "Acct", "type": "bank"}, headers={"HX-Request": "true"})
+    client.post(
+        "/transactions",
+        data={
+            "type": "expense",
+            "account_id": "1",
+            "amount": "30",
+            "description": "Bus fare",
+            "date": "2026-06-01",
+        },
+        headers={"HX-Request": "true"},
+    )
     response = client.get("/api/transactions")
     assert response.status_code == 200
     data = response.json()
@@ -350,12 +443,18 @@ def test_list_transactions_json(client: TestClient):
 
 
 def test_get_transaction_json(client: TestClient):
-    client.post("/accounts", data={"name": "Acct", "type": "bank"},
-                headers={"HX-Request": "true"})
-    client.post("/transactions", data={
-        "type": "income", "account_id": "1", "amount": "999",
-        "description": "Bonus", "date": "2026-06-01",
-    }, headers={"HX-Request": "true"})
+    client.post("/accounts", data={"name": "Acct", "type": "bank"}, headers={"HX-Request": "true"})
+    client.post(
+        "/transactions",
+        data={
+            "type": "income",
+            "account_id": "1",
+            "amount": "999",
+            "description": "Bonus",
+            "date": "2026-06-01",
+        },
+        headers={"HX-Request": "true"},
+    )
     # Find the transaction via the JSON API.
     txs = client.get("/api/transactions").json()
     tx_id = txs[0]["id"]
@@ -376,12 +475,18 @@ def test_get_transaction_json_not_found(client: TestClient):
 
 
 def test_dashboard_shows_recent_transactions(client: TestClient):
-    client.post("/accounts", data={"name": "Acct", "type": "bank"},
-                headers={"HX-Request": "true"})
-    client.post("/transactions", data={
-        "type": "expense", "account_id": "1", "amount": "42",
-        "description": "Dashboard test", "date": "2026-06-01",
-    }, headers={"HX-Request": "true"})
+    client.post("/accounts", data={"name": "Acct", "type": "bank"}, headers={"HX-Request": "true"})
+    client.post(
+        "/transactions",
+        data={
+            "type": "expense",
+            "account_id": "1",
+            "amount": "42",
+            "description": "Dashboard test",
+            "date": "2026-06-01",
+        },
+        headers={"HX-Request": "true"},
+    )
     response = client.get("/")
     assert response.status_code == 200
     assert "Dashboard test" in response.text
@@ -393,46 +498,67 @@ def test_dashboard_shows_recent_transactions(client: TestClient):
 
 
 def test_create_transaction_empty_description_fails(client: TestClient):
-    client.post("/accounts", data={"name": "Acct", "type": "bank"},
-                headers={"HX-Request": "true"})
-    response = client.post("/transactions", data={
-        "type": "expense", "account_id": "1", "amount": "10",
-        "description": "", "date": "2026-06-01",
-    }, headers={"HX-Request": "true"})
+    client.post("/accounts", data={"name": "Acct", "type": "bank"}, headers={"HX-Request": "true"})
+    response = client.post(
+        "/transactions",
+        data={
+            "type": "expense",
+            "account_id": "1",
+            "amount": "10",
+            "description": "",
+            "date": "2026-06-01",
+        },
+        headers={"HX-Request": "true"},
+    )
     assert response.status_code == 422
 
 
 def test_create_transaction_invalid_type_fails(client: TestClient):
-    client.post("/accounts", data={"name": "Acct", "type": "bank"},
-                headers={"HX-Request": "true"})
-    response = client.post("/transactions", data={
-        "type": "invalid", "account_id": "1", "amount": "10",
-        "description": "Bad", "date": "2026-06-01",
-    }, headers={"HX-Request": "true"})
+    client.post("/accounts", data={"name": "Acct", "type": "bank"}, headers={"HX-Request": "true"})
+    response = client.post(
+        "/transactions",
+        data={
+            "type": "invalid",
+            "account_id": "1",
+            "amount": "10",
+            "description": "Bad",
+            "date": "2026-06-01",
+        },
+        headers={"HX-Request": "true"},
+    )
     assert response.status_code == 422
 
 
 def test_create_transaction_zero_amount_fails(client: TestClient):
-    client.post("/accounts", data={"name": "Acct", "type": "bank"},
-                headers={"HX-Request": "true"})
-    response = client.post("/transactions", data={
-        "type": "expense", "account_id": "1", "amount": "0",
-        "description": "Free", "date": "2026-06-01",
-    }, headers={"HX-Request": "true"})
+    client.post("/accounts", data={"name": "Acct", "type": "bank"}, headers={"HX-Request": "true"})
+    response = client.post(
+        "/transactions",
+        data={
+            "type": "expense",
+            "account_id": "1",
+            "amount": "0",
+            "description": "Free",
+            "date": "2026-06-01",
+        },
+        headers={"HX-Request": "true"},
+    )
     assert response.status_code == 422
 
 
 def test_transfer_same_account_fails(client: TestClient):
-    client.post("/accounts", data={"name": "Acct", "type": "bank"},
-                headers={"HX-Request": "true"})
-    response = client.post("/transactions", data={
-        "type": "transfer",
-        "from_account_id": "1",
-        "to_account_id": "1",
-        "amount": "100",
-        "description": "Self transfer",
-        "date": "2026-06-01",
-    }, headers={"HX-Request": "true"})
+    client.post("/accounts", data={"name": "Acct", "type": "bank"}, headers={"HX-Request": "true"})
+    response = client.post(
+        "/transactions",
+        data={
+            "type": "transfer",
+            "from_account_id": "1",
+            "to_account_id": "1",
+            "amount": "100",
+            "description": "Self transfer",
+            "date": "2026-06-01",
+        },
+        headers={"HX-Request": "true"},
+    )
     assert response.status_code == 422
 
 
@@ -572,18 +698,22 @@ def test_update_transfer_pair_nonexistent(db_session: Session):
 
 def test_edit_transfer_page_returns_200(client: TestClient):
     """GET /transactions/{id}/edit for a transfer should return 200."""
-    client.post("/accounts", data={"name": "Source", "type": "bank"},
-                headers={"HX-Request": "true"})
-    client.post("/accounts", data={"name": "Dest", "type": "bank"},
-                headers={"HX-Request": "true"})
-    client.post("/transactions", data={
-        "type": "transfer",
-        "from_account_id": "1",
-        "to_account_id": "2",
-        "amount": "500",
-        "description": "Transfer",
-        "date": "2026-06-01",
-    }, headers={"HX-Request": "true"})
+    client.post(
+        "/accounts", data={"name": "Source", "type": "bank"}, headers={"HX-Request": "true"}
+    )
+    client.post("/accounts", data={"name": "Dest", "type": "bank"}, headers={"HX-Request": "true"})
+    client.post(
+        "/transactions",
+        data={
+            "type": "transfer",
+            "from_account_id": "1",
+            "to_account_id": "2",
+            "amount": "500",
+            "description": "Transfer",
+            "date": "2026-06-01",
+        },
+        headers={"HX-Request": "true"},
+    )
 
     txs = client.get("/api/transactions").json()
     transfer_tx = next(t for t in txs if t["type"] == "transfer")
@@ -596,18 +726,22 @@ def test_edit_transfer_page_returns_200(client: TestClient):
 
 def test_edit_transfer_via_htmx(client: TestClient):
     """PATCH /transactions/{id} for a transfer should update both legs."""
-    client.post("/accounts", data={"name": "Source", "type": "bank"},
-                headers={"HX-Request": "true"})
-    client.post("/accounts", data={"name": "Dest", "type": "bank"},
-                headers={"HX-Request": "true"})
-    client.post("/transactions", data={
-        "type": "transfer",
-        "from_account_id": "1",
-        "to_account_id": "2",
-        "amount": "500",
-        "description": "Transfer",
-        "date": "2026-06-01",
-    }, headers={"HX-Request": "true"})
+    client.post(
+        "/accounts", data={"name": "Source", "type": "bank"}, headers={"HX-Request": "true"}
+    )
+    client.post("/accounts", data={"name": "Dest", "type": "bank"}, headers={"HX-Request": "true"})
+    client.post(
+        "/transactions",
+        data={
+            "type": "transfer",
+            "from_account_id": "1",
+            "to_account_id": "2",
+            "amount": "500",
+            "description": "Transfer",
+            "date": "2026-06-01",
+        },
+        headers={"HX-Request": "true"},
+    )
 
     txs = client.get("/api/transactions").json()
     transfer_tx = next(t for t in txs if t["type"] == "transfer")
@@ -634,18 +768,22 @@ def test_edit_transfer_via_htmx(client: TestClient):
 
 def test_edit_transfer_via_json(client: TestClient):
     """PATCH /transactions/{id} for a transfer (form data) should update both legs."""
-    client.post("/accounts", data={"name": "Source", "type": "bank"},
-                headers={"HX-Request": "true"})
-    client.post("/accounts", data={"name": "Dest", "type": "bank"},
-                headers={"HX-Request": "true"})
-    client.post("/transactions", data={
-        "type": "transfer",
-        "from_account_id": "1",
-        "to_account_id": "2",
-        "amount": "500",
-        "description": "Transfer",
-        "date": "2026-06-01",
-    }, headers={"HX-Request": "true"})
+    client.post(
+        "/accounts", data={"name": "Source", "type": "bank"}, headers={"HX-Request": "true"}
+    )
+    client.post("/accounts", data={"name": "Dest", "type": "bank"}, headers={"HX-Request": "true"})
+    client.post(
+        "/transactions",
+        data={
+            "type": "transfer",
+            "from_account_id": "1",
+            "to_account_id": "2",
+            "amount": "500",
+            "description": "Transfer",
+            "date": "2026-06-01",
+        },
+        headers={"HX-Request": "true"},
+    )
 
     txs = client.get("/api/transactions").json()
     transfer_tx = next(t for t in txs if t["type"] == "transfer")
@@ -660,18 +798,22 @@ def test_edit_transfer_via_json(client: TestClient):
 
 def test_delete_transfer_via_htmx(client: TestClient):
     """Deleting a transfer via HTMX should delete both legs."""
-    client.post("/accounts", data={"name": "Source", "type": "bank"},
-                headers={"HX-Request": "true"})
-    client.post("/accounts", data={"name": "Dest", "type": "bank"},
-                headers={"HX-Request": "true"})
-    client.post("/transactions", data={
-        "type": "transfer",
-        "from_account_id": "1",
-        "to_account_id": "2",
-        "amount": "500",
-        "description": "Transfer",
-        "date": "2026-06-01",
-    }, headers={"HX-Request": "true"})
+    client.post(
+        "/accounts", data={"name": "Source", "type": "bank"}, headers={"HX-Request": "true"}
+    )
+    client.post("/accounts", data={"name": "Dest", "type": "bank"}, headers={"HX-Request": "true"})
+    client.post(
+        "/transactions",
+        data={
+            "type": "transfer",
+            "from_account_id": "1",
+            "to_account_id": "2",
+            "amount": "500",
+            "description": "Transfer",
+            "date": "2026-06-01",
+        },
+        headers={"HX-Request": "true"},
+    )
 
     txs = client.get("/api/transactions").json()
     transfer_tx = next(t for t in txs if t["type"] == "transfer")
@@ -744,7 +886,9 @@ def test_create_via_htmx_with_next_returns_custom_redirect(client: TestClient, d
     assert r.headers.get("HX-Redirect") == "/"
 
 
-def test_create_via_htmx_without_next_falls_back_to_transactions(client: TestClient, db_session: Session):
+def test_create_via_htmx_without_next_falls_back_to_transactions(
+    client: TestClient, db_session: Session
+):
     """POST /transactions with no next field must fall back to HX-Redirect: /transactions."""
     acc = _seed_account(db_session, "Test Account 2", AccountType.CASH, "0")
     db_session.commit()

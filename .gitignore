@@ -19,6 +19,11 @@ dist/
 *.egg-info/
 *.egg
 
+# --- Node / frontend build ---
+backend/node_modules/
+backend/.bin/
+backend/app/static/css/app.compiled.css
+
 # --- Project ---
 # SQLite database
 data/*.db
@@ -31,7 +36,7 @@ data/*.db-shm
 .env.local
 .env.*.local
 
-# Editor
+# Editor / OS
 .vscode/
 .idea/
 *.swp
@@ -39,8 +44,16 @@ data/*.db-shm
 .DS_Store
 Thumbs.db
 
+# Agent / IDE config
+.agents/
+
 # Logs
 *.log
 logs/
 backend/app/app.db
-PLAN.Trans.MD
+
+# Working / planning docs (not part of the shipped product)
+findings.md
+review-comments.txt
+Plan_reporting.md
+Plan_trans.md

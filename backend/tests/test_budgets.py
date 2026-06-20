@@ -19,13 +19,24 @@ from app.crud.category import create_category
 from app.crud.transaction import create_transaction
 from app.models.budget import BudgetPeriod
 from app.models.transaction import TransactionType
+from app.models.user import User
 from app.schemas.budget import BudgetCreate, BudgetUpdate
 from app.schemas.category import CategoryCreate
 from app.services.analytics import budget_progress
 
 
-def _seed_cat(db: Session, name: str = "Food", type_: str = "expense", color: str = "#16a34a"):
-    return create_category(db, CategoryCreate(name=name, type=type_, color=color))
+def _seed_user(db: Session) -> int:
+    user = User(email="test@example.com", name="Test User", google_sub="test-sub")
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user.id
+
+
+def _seed_cat(
+    db: Session, user_id: int, name: str = "Food", type_: str = "expense", color: str = "#16a34a"
+):
+    return create_category(db, CategoryCreate(name=name, type=type_, color=color), user_id=user_id)
 
 
 # ------------------------------------------------------------------
@@ -45,14 +56,15 @@ def test_budget_period_enum():
 
 
 def test_create_and_read_budget(db_session: Session):
-    cat = _seed_cat(db_session, "Food")
+    uid = _seed_user(db_session)
+    cat = _seed_cat(db_session, uid, "Food")
     data = BudgetCreate(
         category_id=cat.id,
         amount=Decimal("10000"),
         period=BudgetPeriod.MONTHLY,
         start_date=datetime.date(2026, 6, 1),
     )
-    budget = create_budget(db_session, data)
+    budget = create_budget(db_session, data, user_id=uid)
     assert budget.id is not None
     assert budget.category_id == cat.id
     assert budget.amount == Decimal("10000")
@@ -65,24 +77,44 @@ def test_create_and_read_budget(db_session: Session):
 
 
 def test_list_budgets(db_session: Session):
-    cat = _seed_cat(db_session, "Food")
-    create_budget(db_session, BudgetCreate(
-        category_id=cat.id, amount=Decimal("5000"), period=BudgetPeriod.MONTHLY,
-        start_date=datetime.date(2026, 6, 1),
-    ))
-    create_budget(db_session, BudgetCreate(
-        category_id=cat.id, amount=Decimal("2000"), period=BudgetPeriod.WEEKLY,
-        start_date=datetime.date(2026, 6, 1),
-    ))
-    assert len(list_budgets(db_session)) == 2
+    uid = _seed_user(db_session)
+    cat = _seed_cat(db_session, uid, "Food")
+    create_budget(
+        db_session,
+        BudgetCreate(
+            category_id=cat.id,
+            amount=Decimal("5000"),
+            period=BudgetPeriod.MONTHLY,
+            start_date=datetime.date(2026, 6, 1),
+        ),
+        user_id=uid,
+    )
+    create_budget(
+        db_session,
+        BudgetCreate(
+            category_id=cat.id,
+            amount=Decimal("2000"),
+            period=BudgetPeriod.WEEKLY,
+            start_date=datetime.date(2026, 6, 1),
+        ),
+        user_id=uid,
+    )
+    assert len(list_budgets(db_session, user_id=uid)) == 2
 
 
 def test_update_budget(db_session: Session):
-    cat = _seed_cat(db_session, "Food")
-    budget = create_budget(db_session, BudgetCreate(
-        category_id=cat.id, amount=Decimal("5000"), period=BudgetPeriod.MONTHLY,
-        start_date=datetime.date(2026, 6, 1),
-    ))
+    uid = _seed_user(db_session)
+    cat = _seed_cat(db_session, uid, "Food")
+    budget = create_budget(
+        db_session,
+        BudgetCreate(
+            category_id=cat.id,
+            amount=Decimal("5000"),
+            period=BudgetPeriod.MONTHLY,
+            start_date=datetime.date(2026, 6, 1),
+        ),
+        user_id=uid,
+    )
     updated = update_budget(db_session, budget.id, BudgetUpdate(amount=Decimal("8000")))
     assert updated is not None
     assert updated.amount == Decimal("8000")
@@ -94,11 +126,18 @@ def test_update_nonexistent_budget(db_session: Session):
 
 
 def test_delete_budget(db_session: Session):
-    cat = _seed_cat(db_session, "Food")
-    budget = create_budget(db_session, BudgetCreate(
-        category_id=cat.id, amount=Decimal("5000"), period=BudgetPeriod.MONTHLY,
-        start_date=datetime.date(2026, 6, 1),
-    ))
+    uid = _seed_user(db_session)
+    cat = _seed_cat(db_session, uid, "Food")
+    budget = create_budget(
+        db_session,
+        BudgetCreate(
+            category_id=cat.id,
+            amount=Decimal("5000"),
+            period=BudgetPeriod.MONTHLY,
+            start_date=datetime.date(2026, 6, 1),
+        ),
+        user_id=uid,
+    )
     ok, err = delete_budget(db_session, budget.id)
     assert ok is True
     assert err is None
@@ -117,31 +156,51 @@ def test_delete_nonexistent_budget(db_session: Session):
 
 
 def test_budget_progress_no_data(db_session: Session):
-    progress = budget_progress(db_session)
+    uid = _seed_user(db_session)
+    progress = budget_progress(db_session, uid)
     assert progress == []
 
 
 def test_budget_progress_with_spending(db_session: Session):
+    uid = _seed_user(db_session)
     from app.crud.account import create_account
     from app.models.account import AccountType
     from app.schemas.account import AccountCreate
 
-    acct = create_account(db_session, AccountCreate(name="Bank", type=AccountType.BANK, opening_balance=Decimal("0")))
-    cat = _seed_cat(db_session, "Food")
-    budget = create_budget(db_session, BudgetCreate(
-        category_id=cat.id, amount=Decimal("10000"), period=BudgetPeriod.MONTHLY,
-        start_date=datetime.date(2026, 6, 1),
-    ))
+    acct = create_account(
+        db_session,
+        AccountCreate(name="Bank", type=AccountType.BANK, opening_balance=Decimal("0")),
+        user_id=uid,
+    )
+    cat = _seed_cat(db_session, uid, "Food")
+    budget = create_budget(
+        db_session,
+        BudgetCreate(
+            category_id=cat.id,
+            amount=Decimal("10000"),
+            period=BudgetPeriod.MONTHLY,
+            start_date=datetime.date(2026, 6, 1),
+        ),
+        user_id=uid,
+    )
 
     # Spend 2500 on food
-    create_transaction(db_session, acct.id, Decimal("-2500"), TransactionType.EXPENSE,
-                       "Groceries", datetime.date(2026, 6, 5))
+    create_transaction(
+        db_session,
+        acct.id,
+        Decimal("-2500"),
+        TransactionType.EXPENSE,
+        "Groceries",
+        datetime.date(2026, 6, 5),
+        user_id=uid,
+    )
 
     # Update the budget's transaction to have category_id
     from app.crud.transaction import update_transaction
+
     update_transaction(db_session, 1, category_id=cat.id)
 
-    progress = budget_progress(db_session, year=2026, month=6)
+    progress = budget_progress(db_session, uid, year=2026, month=6)
     assert len(progress) == 1
     p = progress[0]
     assert p["budget_id"] == budget.id
@@ -154,23 +213,42 @@ def test_budget_progress_with_spending(db_session: Session):
 
 
 def test_budget_progress_over_budget(db_session: Session):
+    uid = _seed_user(db_session)
     from app.crud.account import create_account
     from app.models.account import AccountType
     from app.schemas.account import AccountCreate
 
-    acct = create_account(db_session, AccountCreate(name="Bank", type=AccountType.BANK, opening_balance=Decimal("0")))
-    cat = _seed_cat(db_session, "Food")
-    create_budget(db_session, BudgetCreate(
-        category_id=cat.id, amount=Decimal("2000"), period=BudgetPeriod.MONTHLY,
-        start_date=datetime.date(2026, 6, 1),
-    ))
+    acct = create_account(
+        db_session,
+        AccountCreate(name="Bank", type=AccountType.BANK, opening_balance=Decimal("0")),
+        user_id=uid,
+    )
+    cat = _seed_cat(db_session, uid, "Food")
+    create_budget(
+        db_session,
+        BudgetCreate(
+            category_id=cat.id,
+            amount=Decimal("2000"),
+            period=BudgetPeriod.MONTHLY,
+            start_date=datetime.date(2026, 6, 1),
+        ),
+        user_id=uid,
+    )
 
-    create_transaction(db_session, acct.id, Decimal("-2500"), TransactionType.EXPENSE,
-                       "Groceries", datetime.date(2026, 6, 5))
+    create_transaction(
+        db_session,
+        acct.id,
+        Decimal("-2500"),
+        TransactionType.EXPENSE,
+        "Groceries",
+        datetime.date(2026, 6, 5),
+        user_id=uid,
+    )
     from app.crud.transaction import update_transaction
+
     update_transaction(db_session, 1, category_id=cat.id)
 
-    progress = budget_progress(db_session, year=2026, month=6)
+    progress = budget_progress(db_session, uid, year=2026, month=6)
     assert len(progress) == 1
     p = progress[0]
     assert p["over_budget"] is True
@@ -178,23 +256,43 @@ def test_budget_progress_over_budget(db_session: Session):
 
 
 def test_budget_progress_ignores_inactive(db_session: Session):
+    uid = _seed_user(db_session)
     from app.crud.account import create_account
     from app.models.account import AccountType
     from app.schemas.account import AccountCreate
 
-    acct = create_account(db_session, AccountCreate(name="Bank", type=AccountType.BANK, opening_balance=Decimal("0")))
-    cat = _seed_cat(db_session, "Food")
-    create_budget(db_session, BudgetCreate(
-        category_id=cat.id, amount=Decimal("2000"), period=BudgetPeriod.MONTHLY,
-        start_date=datetime.date(2026, 6, 1), is_active=False,
-    ))
+    acct = create_account(
+        db_session,
+        AccountCreate(name="Bank", type=AccountType.BANK, opening_balance=Decimal("0")),
+        user_id=uid,
+    )
+    cat = _seed_cat(db_session, uid, "Food")
+    create_budget(
+        db_session,
+        BudgetCreate(
+            category_id=cat.id,
+            amount=Decimal("2000"),
+            period=BudgetPeriod.MONTHLY,
+            start_date=datetime.date(2026, 6, 1),
+            is_active=False,
+        ),
+        user_id=uid,
+    )
 
-    create_transaction(db_session, acct.id, Decimal("-500"), TransactionType.EXPENSE,
-                       "Groceries", datetime.date(2026, 6, 5))
+    create_transaction(
+        db_session,
+        acct.id,
+        Decimal("-500"),
+        TransactionType.EXPENSE,
+        "Groceries",
+        datetime.date(2026, 6, 5),
+        user_id=uid,
+    )
     from app.crud.transaction import update_transaction
+
     update_transaction(db_session, 1, category_id=cat.id)
 
-    progress = budget_progress(db_session, year=2026, month=6)
+    progress = budget_progress(db_session, uid, year=2026, month=6)
     assert len(progress) == 0
 
 
@@ -212,8 +310,9 @@ def test_budget_list_page(client: TestClient):
 
 def test_budget_new_page(client: TestClient):
     # Seed a category first
-    client.post("/categories", data={"name": "Food", "type": "expense"},
-                headers={"HX-Request": "true"})
+    client.post(
+        "/categories", data={"name": "Food", "type": "expense"}, headers={"HX-Request": "true"}
+    )
     response = client.get("/budgets/new")
     assert response.status_code == 200
     assert "Create budget" in response.text
@@ -221,12 +320,19 @@ def test_budget_new_page(client: TestClient):
 
 
 def test_budget_edit_page(client: TestClient):
-    client.post("/categories", data={"name": "Food", "type": "expense"},
-                headers={"HX-Request": "true"})
-    client.post("/budgets", data={
-        "category_id": "1", "amount": "5000", "period": "monthly",
-        "start_date": "2026-06-01",
-    }, headers={"HX-Request": "true"})
+    client.post(
+        "/categories", data={"name": "Food", "type": "expense"}, headers={"HX-Request": "true"}
+    )
+    client.post(
+        "/budgets",
+        data={
+            "category_id": "1",
+            "amount": "5000",
+            "period": "monthly",
+            "start_date": "2026-06-01",
+        },
+        headers={"HX-Request": "true"},
+    )
     budgets = client.get("/api/budgets").json()
     budget_id = budgets[0]["id"]
 
@@ -246,41 +352,60 @@ def test_budget_edit_page_not_found(client: TestClient):
 
 
 def test_create_budget_via_htmx(client: TestClient):
-    client.post("/categories", data={"name": "Food", "type": "expense"},
-                headers={"HX-Request": "true"})
-    response = client.post("/budgets", data={
-        "category_id": "1", "amount": "10000", "period": "monthly",
-        "start_date": "2026-06-01",
-    }, headers={"HX-Request": "true"})
+    client.post(
+        "/categories", data={"name": "Food", "type": "expense"}, headers={"HX-Request": "true"}
+    )
+    response = client.post(
+        "/budgets",
+        data={
+            "category_id": "1",
+            "amount": "10000",
+            "period": "monthly",
+            "start_date": "2026-06-01",
+        },
+        headers={"HX-Request": "true"},
+    )
     assert response.status_code == 200
     assert response.headers.get("HX-Redirect") == "/budgets"
 
 
 def test_update_budget_via_htmx(client: TestClient):
-    client.post("/categories", data={"name": "Food", "type": "expense"},
-                headers={"HX-Request": "true"})
-    client.post("/budgets", data={
-        "category_id": "1", "amount": "5000", "period": "monthly",
-        "start_date": "2026-06-01",
-    }, headers={"HX-Request": "true"})
-    response = client.patch("/budgets/1", data={"amount": "8000"},
-                            headers={"HX-Request": "true"})
+    client.post(
+        "/categories", data={"name": "Food", "type": "expense"}, headers={"HX-Request": "true"}
+    )
+    client.post(
+        "/budgets",
+        data={
+            "category_id": "1",
+            "amount": "5000",
+            "period": "monthly",
+            "start_date": "2026-06-01",
+        },
+        headers={"HX-Request": "true"},
+    )
+    response = client.patch("/budgets/1", data={"amount": "8000"}, headers={"HX-Request": "true"})
     assert response.status_code == 200
     assert response.headers.get("HX-Redirect") == "/budgets"
 
 
 def test_delete_budget_via_htmx(client: TestClient):
-    client.post("/categories", data={"name": "Food", "type": "expense"},
-                headers={"HX-Request": "true"})
-    client.post("/budgets", data={
-        "category_id": "1", "amount": "3000", "period": "monthly",
-        "start_date": "2026-06-01",
-    }, headers={"HX-Request": "true"})
+    client.post(
+        "/categories", data={"name": "Food", "type": "expense"}, headers={"HX-Request": "true"}
+    )
+    client.post(
+        "/budgets",
+        data={
+            "category_id": "1",
+            "amount": "3000",
+            "period": "monthly",
+            "start_date": "2026-06-01",
+        },
+        headers={"HX-Request": "true"},
+    )
     budgets = client.get("/api/budgets").json()
     budget_id = budgets[0]["id"]
 
-    response = client.delete(f"/budgets/{budget_id}",
-                             headers={"HX-Request": "true"})
+    response = client.delete(f"/budgets/{budget_id}", headers={"HX-Request": "true"})
     assert response.status_code == 200
     assert response.headers.get("HX-Trigger") == "budget-deleted"
 
@@ -291,12 +416,19 @@ def test_delete_budget_via_htmx(client: TestClient):
 
 
 def test_list_budgets_json(client: TestClient):
-    client.post("/categories", data={"name": "Food", "type": "expense"},
-                headers={"HX-Request": "true"})
-    client.post("/budgets", data={
-        "category_id": "1", "amount": "5000", "period": "monthly",
-        "start_date": "2026-06-01",
-    }, headers={"HX-Request": "true"})
+    client.post(
+        "/categories", data={"name": "Food", "type": "expense"}, headers={"HX-Request": "true"}
+    )
+    client.post(
+        "/budgets",
+        data={
+            "category_id": "1",
+            "amount": "5000",
+            "period": "monthly",
+            "start_date": "2026-06-01",
+        },
+        headers={"HX-Request": "true"},
+    )
     response = client.get("/api/budgets")
     assert response.status_code == 200
     data = response.json()
@@ -305,12 +437,19 @@ def test_list_budgets_json(client: TestClient):
 
 
 def test_get_budget_json(client: TestClient):
-    client.post("/categories", data={"name": "Food", "type": "expense"},
-                headers={"HX-Request": "true"})
-    client.post("/budgets", data={
-        "category_id": "1", "amount": "7500", "period": "monthly",
-        "start_date": "2026-06-01",
-    }, headers={"HX-Request": "true"})
+    client.post(
+        "/categories", data={"name": "Food", "type": "expense"}, headers={"HX-Request": "true"}
+    )
+    client.post(
+        "/budgets",
+        data={
+            "category_id": "1",
+            "amount": "7500",
+            "period": "monthly",
+            "start_date": "2026-06-01",
+        },
+        headers={"HX-Request": "true"},
+    )
     budgets = client.get("/api/budgets").json()
     budget_id = budgets[0]["id"]
 
@@ -330,22 +469,36 @@ def test_get_budget_json_not_found(client: TestClient):
 
 
 def test_create_budget_zero_amount_fails(client: TestClient):
-    client.post("/categories", data={"name": "Food", "type": "expense"},
-                headers={"HX-Request": "true"})
-    response = client.post("/budgets", data={
-        "category_id": "1", "amount": "0", "period": "monthly",
-        "start_date": "2026-06-01",
-    }, headers={"HX-Request": "true"})
+    client.post(
+        "/categories", data={"name": "Food", "type": "expense"}, headers={"HX-Request": "true"}
+    )
+    response = client.post(
+        "/budgets",
+        data={
+            "category_id": "1",
+            "amount": "0",
+            "period": "monthly",
+            "start_date": "2026-06-01",
+        },
+        headers={"HX-Request": "true"},
+    )
     assert response.status_code == 422
 
 
 def test_create_budget_invalid_period_fails(client: TestClient):
-    client.post("/categories", data={"name": "Food", "type": "expense"},
-                headers={"HX-Request": "true"})
-    response = client.post("/budgets", data={
-        "category_id": "1", "amount": "1000", "period": "invalid",
-        "start_date": "2026-06-01",
-    }, headers={"HX-Request": "true"})
+    client.post(
+        "/categories", data={"name": "Food", "type": "expense"}, headers={"HX-Request": "true"}
+    )
+    response = client.post(
+        "/budgets",
+        data={
+            "category_id": "1",
+            "amount": "1000",
+            "period": "invalid",
+            "start_date": "2026-06-01",
+        },
+        headers={"HX-Request": "true"},
+    )
     assert response.status_code == 422
 
 

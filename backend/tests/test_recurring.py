@@ -18,14 +18,27 @@ from app.crud.recurring import (
 )
 from app.models.account import AccountType
 from app.models.recurring import RecurringFrequency
+from app.models.user import User
 from app.schemas.account import AccountCreate
 from app.schemas.category import CategoryCreate
 from app.schemas.recurring import RecurringRuleCreate, RecurringRuleUpdate
 from app.services.recurring import materialize_all, materialize_rule, next_occurrences
 
 
-def _seed_account(db: Session, name: str = "Bank") -> int:
-    return create_account(db, AccountCreate(name=name, type=AccountType.BANK, opening_balance=Decimal("0"))).id
+def _seed_user(db: Session) -> int:
+    user = User(email="test@example.com", name="Test User", google_sub="test-sub")
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user.id
+
+
+def _seed_account(db: Session, name: str = "Bank", user_id: int | None = None) -> int:
+    return create_account(
+        db,
+        AccountCreate(name=name, type=AccountType.BANK, opening_balance=Decimal("0")),
+        user_id=user_id,
+    ).id
 
 
 def _seed_cat(db: Session, name: str = "Food") -> int:
@@ -88,7 +101,10 @@ def test_create_rule_with_category(db_session: Session):
 def test_list_rules(db_session: Session):
     acct_id = _seed_account(db_session)
     create_rule(db_session, _make_rule_data(acct_id, description="Salary"))
-    create_rule(db_session, _make_rule_data(acct_id, description="Rent", type="expense", amount=Decimal("20000")))
+    create_rule(
+        db_session,
+        _make_rule_data(acct_id, description="Rent", type="expense", amount=Decimal("20000")),
+    )
     assert len(list_rules(db_session)) == 2
 
 
@@ -166,7 +182,12 @@ def test_next_occurrences_weekly(db_session: Session):
     acct_id = _seed_account(db_session)
     rule = create_rule(
         db_session,
-        _make_rule_data(acct_id, frequency=RecurringFrequency.WEEKLY, start_date=datetime.date(2026, 6, 1), day_of_week=0),
+        _make_rule_data(
+            acct_id,
+            frequency=RecurringFrequency.WEEKLY,
+            start_date=datetime.date(2026, 6, 1),
+            day_of_week=0,
+        ),
     )
     dates = next_occurrences(rule, count=3)
     assert len(dates) == 3
@@ -180,7 +201,9 @@ def test_next_occurrences_daily(db_session: Session):
     acct_id = _seed_account(db_session)
     rule = create_rule(
         db_session,
-        _make_rule_data(acct_id, frequency=RecurringFrequency.DAILY, start_date=datetime.date(2026, 6, 1)),
+        _make_rule_data(
+            acct_id, frequency=RecurringFrequency.DAILY, start_date=datetime.date(2026, 6, 1)
+        ),
     )
     dates = next_occurrences(rule, count=3)
     assert dates[0] == datetime.date(2026, 6, 2)
@@ -192,7 +215,9 @@ def test_next_occurrences_yearly(db_session: Session):
     acct_id = _seed_account(db_session)
     rule = create_rule(
         db_session,
-        _make_rule_data(acct_id, frequency=RecurringFrequency.YEARLY, start_date=datetime.date(2026, 1, 1)),
+        _make_rule_data(
+            acct_id, frequency=RecurringFrequency.YEARLY, start_date=datetime.date(2026, 1, 1)
+        ),
     )
     dates = next_occurrences(rule, count=2)
     assert dates[0] == datetime.date(2027, 1, 1)
@@ -203,7 +228,9 @@ def test_next_occurrences_respects_end_date(db_session: Session):
     acct_id = _seed_account(db_session)
     rule = create_rule(
         db_session,
-        _make_rule_data(acct_id, start_date=datetime.date(2026, 1, 1), end_date=datetime.date(2026, 3, 15)),
+        _make_rule_data(
+            acct_id, start_date=datetime.date(2026, 1, 1), end_date=datetime.date(2026, 3, 15)
+        ),
     )
     dates = next_occurrences(rule, count=10)
     assert len(dates) == 2  # Feb 1, March 1
@@ -229,11 +256,19 @@ def test_next_occurrences_from_last_generated(db_session: Session):
 def test_materialize_rule_creates_transactions(db_session: Session):
     from app.crud.transaction import list_transactions
 
-    acct_id = _seed_account(db_session)
+    uid = _seed_user(db_session)
+    acct_id = _seed_account(db_session, user_id=uid)
     rule = create_rule(
         db_session,
-        _make_rule_data(acct_id, frequency=RecurringFrequency.DAILY, amount=Decimal("1000"), type="expense",
-                        description="Daily coffee", start_date=datetime.date(2026, 6, 1)),
+        _make_rule_data(
+            acct_id,
+            frequency=RecurringFrequency.DAILY,
+            amount=Decimal("1000"),
+            type="expense",
+            description="Daily coffee",
+            start_date=datetime.date(2026, 6, 1),
+        ),
+        user_id=uid,
     )
 
     # Manually override last_generated_date to limit the range
@@ -241,7 +276,7 @@ def test_materialize_rule_creates_transactions(db_session: Session):
     rule = get_rule(db_session, rule.id)
 
     # Only 3 days of materialization (June 1-3 relative to May 31)
-    count = materialize_rule(db_session, rule)
+    count = materialize_rule(db_session, rule, user_id=uid)
     assert count >= 1
 
     txs = list_transactions(db_session)
@@ -252,43 +287,67 @@ def test_materialize_rule_creates_transactions(db_session: Session):
 
 
 def test_materialize_rule_idempotent(db_session: Session):
-    acct_id = _seed_account(db_session)
+    uid = _seed_user(db_session)
+    acct_id = _seed_account(db_session, user_id=uid)
     rule = create_rule(
         db_session,
-        _make_rule_data(acct_id, frequency=RecurringFrequency.DAILY, amount=Decimal("500"), type="expense",
-                        description="Snacks", start_date=datetime.date(2026, 6, 1)),
+        _make_rule_data(
+            acct_id,
+            frequency=RecurringFrequency.DAILY,
+            amount=Decimal("500"),
+            type="expense",
+            description="Snacks",
+            start_date=datetime.date(2026, 6, 1),
+        ),
+        user_id=uid,
     )
     update_last_generated_date(db_session, rule.id, datetime.date(2026, 5, 31))
     rule = get_rule(db_session, rule.id)
 
-    count1 = materialize_rule(db_session, rule)
+    count1 = materialize_rule(db_session, rule, user_id=uid)
 
     # Second call should produce 0 new transactions
-    count2 = materialize_rule(db_session, rule)
+    count2 = materialize_rule(db_session, rule, user_id=uid)
     assert count2 == 0
 
     from app.crud.transaction import list_transactions
+
     assert len(list_transactions(db_session)) == count1
 
 
 def test_materialize_all(db_session: Session):
     from app.crud.transaction import list_transactions
 
-    acct_id = _seed_account(db_session)
+    uid = _seed_user(db_session)
+    acct_id = _seed_account(db_session, user_id=uid)
     r1 = create_rule(
         db_session,
-        _make_rule_data(acct_id, description="Daily coffee", type="expense", amount=Decimal("500"),
-                        frequency=RecurringFrequency.DAILY, start_date=datetime.date(2026, 6, 1)),
+        _make_rule_data(
+            acct_id,
+            description="Daily coffee",
+            type="expense",
+            amount=Decimal("500"),
+            frequency=RecurringFrequency.DAILY,
+            start_date=datetime.date(2026, 6, 1),
+        ),
+        user_id=uid,
     )
     r2 = create_rule(
         db_session,
-        _make_rule_data(acct_id, description="Daily snack", type="expense", amount=Decimal("300"),
-                        frequency=RecurringFrequency.DAILY, start_date=datetime.date(2026, 6, 1)),
+        _make_rule_data(
+            acct_id,
+            description="Daily snack",
+            type="expense",
+            amount=Decimal("300"),
+            frequency=RecurringFrequency.DAILY,
+            start_date=datetime.date(2026, 6, 1),
+        ),
+        user_id=uid,
     )
     update_last_generated_date(db_session, r1.id, datetime.date(2026, 5, 31))
     update_last_generated_date(db_session, r2.id, datetime.date(2026, 5, 31))
 
-    results = materialize_all(db_session)
+    results = materialize_all(db_session, user_id=uid)
     assert len(results) == 2
     total = sum(results.values())
     assert total >= 2
@@ -296,19 +355,26 @@ def test_materialize_all(db_session: Session):
 
 
 def test_materialize_all_skips_inactive(db_session: Session):
-    acct_id = _seed_account(db_session)
+    uid = _seed_user(db_session)
+    acct_id = _seed_account(db_session, user_id=uid)
     r1 = create_rule(
         db_session,
-        _make_rule_data(acct_id, description="Active", start_date=datetime.date(2026, 6, 1), is_active=True),
+        _make_rule_data(
+            acct_id, description="Active", start_date=datetime.date(2026, 6, 1), is_active=True
+        ),
+        user_id=uid,
     )
     r2 = create_rule(
         db_session,
-        _make_rule_data(acct_id, description="Inactive", start_date=datetime.date(2026, 6, 1), is_active=False),
+        _make_rule_data(
+            acct_id, description="Inactive", start_date=datetime.date(2026, 6, 1), is_active=False
+        ),
+        user_id=uid,
     )
     update_last_generated_date(db_session, r1.id, datetime.date(2026, 5, 31))
     update_last_generated_date(db_session, r2.id, datetime.date(2026, 5, 31))
 
-    results = materialize_all(db_session)
+    results = materialize_all(db_session, user_id=uid)
     assert r1.id in results
     assert r2.id not in results
 
@@ -327,8 +393,11 @@ def test_recurring_list_page(client: TestClient):
 
 def test_recurring_new_page(client: TestClient):
     # Seed an account first
-    client.post("/accounts", data={"name": "Bank", "type": "bank", "opening_balance": "0", "currency": "INR"},
-                headers={"HX-Request": "true"})
+    client.post(
+        "/accounts",
+        data={"name": "Bank", "type": "bank", "opening_balance": "0", "currency": "INR"},
+        headers={"HX-Request": "true"},
+    )
     response = client.get("/recurring/new")
     assert response.status_code == 200
     assert "New recurring rule" in response.text
@@ -336,12 +405,23 @@ def test_recurring_new_page(client: TestClient):
 
 
 def test_recurring_edit_page(client: TestClient):
-    client.post("/accounts", data={"name": "Bank", "type": "bank", "opening_balance": "0", "currency": "INR"},
-                headers={"HX-Request": "true"})
-    client.post("/recurring", data={
-        "account_id": "1", "amount": "50000", "type": "income", "description": "Salary",
-        "frequency": "monthly", "start_date": "2026-01-01",
-    }, headers={"HX-Request": "true"})
+    client.post(
+        "/accounts",
+        data={"name": "Bank", "type": "bank", "opening_balance": "0", "currency": "INR"},
+        headers={"HX-Request": "true"},
+    )
+    client.post(
+        "/recurring",
+        data={
+            "account_id": "1",
+            "amount": "50000",
+            "type": "income",
+            "description": "Salary",
+            "frequency": "monthly",
+            "start_date": "2026-01-01",
+        },
+        headers={"HX-Request": "true"},
+    )
     rules = client.get("/api/recurring").json()
     rule_id = rules[0]["id"]
 
@@ -361,41 +441,74 @@ def test_recurring_edit_page_not_found(client: TestClient):
 
 
 def test_create_rule_via_htmx(client: TestClient):
-    client.post("/accounts", data={"name": "Bank", "type": "bank", "opening_balance": "0", "currency": "INR"},
-                headers={"HX-Request": "true"})
-    response = client.post("/recurring", data={
-        "account_id": "1", "amount": "50000", "type": "income", "description": "Salary",
-        "frequency": "monthly", "start_date": "2026-01-01",
-    }, headers={"HX-Request": "true"})
+    client.post(
+        "/accounts",
+        data={"name": "Bank", "type": "bank", "opening_balance": "0", "currency": "INR"},
+        headers={"HX-Request": "true"},
+    )
+    response = client.post(
+        "/recurring",
+        data={
+            "account_id": "1",
+            "amount": "50000",
+            "type": "income",
+            "description": "Salary",
+            "frequency": "monthly",
+            "start_date": "2026-01-01",
+        },
+        headers={"HX-Request": "true"},
+    )
     assert response.status_code == 200
     assert response.headers.get("HX-Redirect") == "/recurring"
 
 
 def test_update_rule_via_htmx(client: TestClient):
-    client.post("/accounts", data={"name": "Bank", "type": "bank", "opening_balance": "0", "currency": "INR"},
-                headers={"HX-Request": "true"})
-    client.post("/recurring", data={
-        "account_id": "1", "amount": "50000", "type": "income", "description": "Salary",
-        "frequency": "monthly", "start_date": "2026-01-01",
-    }, headers={"HX-Request": "true"})
-    response = client.patch("/recurring/1", data={"amount": "60000"},
-                            headers={"HX-Request": "true"})
+    client.post(
+        "/accounts",
+        data={"name": "Bank", "type": "bank", "opening_balance": "0", "currency": "INR"},
+        headers={"HX-Request": "true"},
+    )
+    client.post(
+        "/recurring",
+        data={
+            "account_id": "1",
+            "amount": "50000",
+            "type": "income",
+            "description": "Salary",
+            "frequency": "monthly",
+            "start_date": "2026-01-01",
+        },
+        headers={"HX-Request": "true"},
+    )
+    response = client.patch(
+        "/recurring/1", data={"amount": "60000"}, headers={"HX-Request": "true"}
+    )
     assert response.status_code == 200
     assert response.headers.get("HX-Redirect") == "/recurring"
 
 
 def test_delete_rule_via_htmx(client: TestClient):
-    client.post("/accounts", data={"name": "Bank", "type": "bank", "opening_balance": "0", "currency": "INR"},
-                headers={"HX-Request": "true"})
-    client.post("/recurring", data={
-        "account_id": "1", "amount": "50000", "type": "income", "description": "Salary",
-        "frequency": "monthly", "start_date": "2026-01-01",
-    }, headers={"HX-Request": "true"})
+    client.post(
+        "/accounts",
+        data={"name": "Bank", "type": "bank", "opening_balance": "0", "currency": "INR"},
+        headers={"HX-Request": "true"},
+    )
+    client.post(
+        "/recurring",
+        data={
+            "account_id": "1",
+            "amount": "50000",
+            "type": "income",
+            "description": "Salary",
+            "frequency": "monthly",
+            "start_date": "2026-01-01",
+        },
+        headers={"HX-Request": "true"},
+    )
     rules = client.get("/api/recurring").json()
     rule_id = rules[0]["id"]
 
-    response = client.delete(f"/recurring/{rule_id}",
-                             headers={"HX-Request": "true"})
+    response = client.delete(f"/recurring/{rule_id}", headers={"HX-Request": "true"})
     assert response.status_code == 200
     assert response.headers.get("HX-Trigger") == "recurring-rule-deleted"
 
@@ -406,12 +519,23 @@ def test_delete_rule_via_htmx(client: TestClient):
 
 
 def test_list_rules_json(client: TestClient):
-    client.post("/accounts", data={"name": "Bank", "type": "bank", "opening_balance": "0", "currency": "INR"},
-                headers={"HX-Request": "true"})
-    client.post("/recurring", data={
-        "account_id": "1", "amount": "50000", "type": "income", "description": "Salary",
-        "frequency": "monthly", "start_date": "2026-01-01",
-    }, headers={"HX-Request": "true"})
+    client.post(
+        "/accounts",
+        data={"name": "Bank", "type": "bank", "opening_balance": "0", "currency": "INR"},
+        headers={"HX-Request": "true"},
+    )
+    client.post(
+        "/recurring",
+        data={
+            "account_id": "1",
+            "amount": "50000",
+            "type": "income",
+            "description": "Salary",
+            "frequency": "monthly",
+            "start_date": "2026-01-01",
+        },
+        headers={"HX-Request": "true"},
+    )
     response = client.get("/api/recurring")
     assert response.status_code == 200
     data = response.json()
@@ -420,12 +544,23 @@ def test_list_rules_json(client: TestClient):
 
 
 def test_get_rule_json(client: TestClient):
-    client.post("/accounts", data={"name": "Bank", "type": "bank", "opening_balance": "0", "currency": "INR"},
-                headers={"HX-Request": "true"})
-    client.post("/recurring", data={
-        "account_id": "1", "amount": "50000", "type": "income", "description": "Salary",
-        "frequency": "monthly", "start_date": "2026-01-01",
-    }, headers={"HX-Request": "true"})
+    client.post(
+        "/accounts",
+        data={"name": "Bank", "type": "bank", "opening_balance": "0", "currency": "INR"},
+        headers={"HX-Request": "true"},
+    )
+    client.post(
+        "/recurring",
+        data={
+            "account_id": "1",
+            "amount": "50000",
+            "type": "income",
+            "description": "Salary",
+            "frequency": "monthly",
+            "start_date": "2026-01-01",
+        },
+        headers={"HX-Request": "true"},
+    )
     rules = client.get("/api/recurring").json()
     rule_id = rules[0]["id"]
 
@@ -445,12 +580,23 @@ def test_get_rule_json_not_found(client: TestClient):
 
 
 def test_preview_endpoint(client: TestClient):
-    client.post("/accounts", data={"name": "Bank", "type": "bank", "opening_balance": "0", "currency": "INR"},
-                headers={"HX-Request": "true"})
-    client.post("/recurring", data={
-        "account_id": "1", "amount": "50000", "type": "income", "description": "Salary",
-        "frequency": "monthly", "start_date": "2026-01-01",
-    }, headers={"HX-Request": "true"})
+    client.post(
+        "/accounts",
+        data={"name": "Bank", "type": "bank", "opening_balance": "0", "currency": "INR"},
+        headers={"HX-Request": "true"},
+    )
+    client.post(
+        "/recurring",
+        data={
+            "account_id": "1",
+            "amount": "50000",
+            "type": "income",
+            "description": "Salary",
+            "frequency": "monthly",
+            "start_date": "2026-01-01",
+        },
+        headers={"HX-Request": "true"},
+    )
     rules = client.get("/api/recurring").json()
     rule_id = rules[0]["id"]
 
@@ -462,18 +608,32 @@ def test_preview_endpoint(client: TestClient):
 
 
 def test_materialize_endpoint(client: TestClient):
-    client.post("/accounts", data={"name": "Bank", "type": "bank", "opening_balance": "0", "currency": "INR"},
-                headers={"HX-Request": "true"})
-    client.post("/recurring", data={
-        "account_id": "1", "amount": "1000", "type": "expense", "description": "Daily coffee",
-        "frequency": "daily", "start_date": "2026-06-01",
-    }, headers={"HX-Request": "true"})
+    client.post(
+        "/accounts",
+        data={"name": "Bank", "type": "bank", "opening_balance": "0", "currency": "INR"},
+        headers={"HX-Request": "true"},
+    )
+    client.post(
+        "/recurring",
+        data={
+            "account_id": "1",
+            "amount": "1000",
+            "type": "expense",
+            "description": "Daily coffee",
+            "frequency": "daily",
+            "start_date": "2026-06-01",
+        },
+        headers={"HX-Request": "true"},
+    )
     rules = client.get("/api/recurring").json()
     rule_id = rules[0]["id"]
 
     # Set last_generated_date so materialize produces some transactions
-    client.patch(f"/recurring/{rule_id}", data={"last_generated_date": "2026-05-31"},
-                 headers={"HX-Request": "true"})
+    client.patch(
+        f"/recurring/{rule_id}",
+        data={"last_generated_date": "2026-05-31"},
+        headers={"HX-Request": "true"},
+    )
 
     response = client.post("/api/recurring/materialize")
     assert response.status_code == 200
@@ -488,30 +648,63 @@ def test_materialize_endpoint(client: TestClient):
 
 
 def test_create_rule_zero_amount_fails(client: TestClient):
-    client.post("/accounts", data={"name": "Bank", "type": "bank", "opening_balance": "0", "currency": "INR"},
-                headers={"HX-Request": "true"})
-    response = client.post("/recurring", data={
-        "account_id": "1", "amount": "0", "type": "income", "description": "Salary",
-        "frequency": "monthly", "start_date": "2026-01-01",
-    }, headers={"HX-Request": "true"})
+    client.post(
+        "/accounts",
+        data={"name": "Bank", "type": "bank", "opening_balance": "0", "currency": "INR"},
+        headers={"HX-Request": "true"},
+    )
+    response = client.post(
+        "/recurring",
+        data={
+            "account_id": "1",
+            "amount": "0",
+            "type": "income",
+            "description": "Salary",
+            "frequency": "monthly",
+            "start_date": "2026-01-01",
+        },
+        headers={"HX-Request": "true"},
+    )
     assert response.status_code == 422
 
 
 def test_create_rule_invalid_type_fails(client: TestClient):
-    client.post("/accounts", data={"name": "Bank", "type": "bank", "opening_balance": "0", "currency": "INR"},
-                headers={"HX-Request": "true"})
-    response = client.post("/recurring", data={
-        "account_id": "1", "amount": "5000", "type": "invalid", "description": "Test",
-        "frequency": "monthly", "start_date": "2026-01-01",
-    }, headers={"HX-Request": "true"})
+    client.post(
+        "/accounts",
+        data={"name": "Bank", "type": "bank", "opening_balance": "0", "currency": "INR"},
+        headers={"HX-Request": "true"},
+    )
+    response = client.post(
+        "/recurring",
+        data={
+            "account_id": "1",
+            "amount": "5000",
+            "type": "invalid",
+            "description": "Test",
+            "frequency": "monthly",
+            "start_date": "2026-01-01",
+        },
+        headers={"HX-Request": "true"},
+    )
     assert response.status_code == 422
 
 
 def test_create_rule_invalid_frequency_fails(client: TestClient):
-    client.post("/accounts", data={"name": "Bank", "type": "bank", "opening_balance": "0", "currency": "INR"},
-                headers={"HX-Request": "true"})
-    response = client.post("/recurring", data={
-        "account_id": "1", "amount": "5000", "type": "expense", "description": "Test",
-        "frequency": "invalid", "start_date": "2026-01-01",
-    }, headers={"HX-Request": "true"})
+    client.post(
+        "/accounts",
+        data={"name": "Bank", "type": "bank", "opening_balance": "0", "currency": "INR"},
+        headers={"HX-Request": "true"},
+    )
+    response = client.post(
+        "/recurring",
+        data={
+            "account_id": "1",
+            "amount": "5000",
+            "type": "expense",
+            "description": "Test",
+            "frequency": "invalid",
+            "start_date": "2026-01-01",
+        },
+        headers={"HX-Request": "true"},
+    )
     assert response.status_code == 422

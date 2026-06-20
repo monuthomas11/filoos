@@ -23,8 +23,9 @@ from app.crud.transaction import (
     update_transaction,
     update_transfer_pair,
 )
-from app.deps import get_db
+from app.deps import get_current_user, get_db
 from app.models.transaction import TransactionType
+from app.models.user import User
 from app.schemas.transaction import TransactionRead
 from app.templates import templates
 from app.utils import is_htmx, parse_date_or_422
@@ -56,7 +57,7 @@ def _render_list_items(request: Request, db: Session, **filters):
     paired_accounts: dict[int, str] = {}
     for tx in txns:
         if tx.type == TransactionType.TRANSFER and tx.transfer_pair_id is not None:
-            pair_tx = get_transaction(db, tx.transfer_pair_id)
+            pair_tx = get_transaction(db, tx.transfer_pair_id, user_id=filters.get("user_id"))
             if pair_tx is not None and pair_tx.account is not None:
                 paired_accounts[tx.id] = pair_tx.account.name
     return templates.TemplateResponse(
@@ -80,6 +81,7 @@ async def transaction_list_page(
     date_to: str | None = Query(None, alias="to"),
     description: str | None = Query(None, alias="q"),
     db: Session = Depends(get_db),
+    user=Depends(get_current_user),
 ):
     parsed_account_id = None
     if account_id:
@@ -121,14 +123,14 @@ async def transaction_list_page(
     if description:
         filters["description"] = description
 
-    txns = list_transactions(db, **filters)
-    accounts = list_accounts(db)
+    txns = list_transactions(db, user_id=user.id, **filters)
+    accounts = list_accounts(db, user_id=user.id)
 
     # Build a map of transfer_pair_id -> paired account name for transfer display
     paired_accounts: dict[int, str] = {}
     for tx in txns:
         if tx.type == TransactionType.TRANSFER and tx.transfer_pair_id is not None:
-            pair_tx = get_transaction(db, tx.transfer_pair_id)
+            pair_tx = get_transaction(db, tx.transfer_pair_id, user_id=user.id)
             if pair_tx is not None and pair_tx.account is not None:
                 paired_accounts[tx.id] = pair_tx.account.name
 
@@ -161,9 +163,10 @@ async def transaction_create_page(
     request: Request,
     from_: str | None = Query(None, alias="from"),
     db: Session = Depends(get_db),
+    user=Depends(get_current_user),
 ):
-    accounts = list_accounts(db)
-    categories = list_categories(db)
+    accounts = list_accounts(db, user_id=user.id)
+    categories = list_categories(db, user_id=user.id)
     return templates.TemplateResponse(
         request,
         "transactions/form.html",
@@ -184,20 +187,21 @@ async def transaction_edit_page(
     request: Request,
     transaction_id: int,
     db: Session = Depends(get_db),
+    user=Depends(get_current_user),
 ):
     # TODO: support `next` param like the create page does (Phase 4.1 scope excluded edits)
-    tx = get_transaction(db, transaction_id)
+    tx = get_transaction(db, transaction_id, user_id=user.id)
     if tx is None:
         return HTMLResponse("Transaction not found", status_code=404)
 
-    accounts = list_accounts(db)
-    categories = list_categories(db)
+    accounts = list_accounts(db, user_id=user.id)
+    categories = list_categories(db, user_id=user.id)
 
     # For transfers, find the paired transaction to get from/to account IDs
     from_account_id = None
     to_account_id = None
     if tx.type == TransactionType.TRANSFER and tx.transfer_pair_id is not None:
-        pair_tx = get_transaction(db, tx.transfer_pair_id)
+        pair_tx = get_transaction(db, tx.transfer_pair_id, user_id=user.id)
         if pair_tx is not None:
             if tx.amount < 0:
                 from_account_id = tx.account_id
@@ -241,6 +245,7 @@ async def transaction_create(
     to_account_id: int | None = Form(None),
     next: str | None = Form(None),
     db: Session = Depends(get_db),
+    user=Depends(get_current_user),
 ):
     try:
         parsed_type = TransactionType(type)
@@ -269,17 +274,16 @@ async def transaction_create(
             description=description,
             date=parsed_date,
             notes=notes or None,
+            user_id=user.id,
         )
         # For HTMX, return the outgoing leg row (or both — just render one)
         tx = out_tx
     else:
         if account_id is None:
-            raise HTTPException(
-                status_code=422, detail="account_id is required"
-            )
+            raise HTTPException(status_code=422, detail="account_id is required")
         signed_amount = amount * _get_amount_sign(parsed_type)
         if category_id is not None:
-            cat = get_category(db, category_id)
+            cat = get_category(db, category_id, user_id=user.id)
             if cat is None:
                 raise HTTPException(status_code=422, detail="Category not found")
             expected = "expense" if parsed_type == TransactionType.EXPENSE else "income"
@@ -297,6 +301,7 @@ async def transaction_create(
             date=parsed_date,
             notes=notes or None,
             category_id=category_id,
+            user_id=user.id,
         )
 
     if is_htmx(request):
@@ -319,9 +324,11 @@ async def transaction_update(
     from_account_id: int | None = Form(None),
     to_account_id: int | None = Form(None),
     db: Session = Depends(get_db),
+    user=Depends(get_current_user),
 ):
-    # TODO: accept `next` form field and use `_safe_next` for redirect (Phase 4.1 scope excluded edits)
-    existing = get_transaction(db, transaction_id)
+    # TODO: accept `next` form field and use `_safe_next` for redirect
+    # (Phase 4.1 scope excluded edits)
+    existing = get_transaction(db, transaction_id, user_id=user.id)
     if existing is None:
         return HTMLResponse("Transaction not found", status_code=404)
 
@@ -351,6 +358,7 @@ async def transaction_update(
             notes=notes,
             from_account_id=from_account_id,
             to_account_id=to_account_id,
+            user_id=user.id,
         )
         if result is None:
             return HTMLResponse("Transfer not found", status_code=404)
@@ -386,7 +394,7 @@ async def transaction_update(
         patch["account_id"] = account_id
     # Always set category_id (including None to allow clearing)
     if category_id is not None:
-        cat = get_category(db, category_id)
+        cat = get_category(db, category_id, user_id=user.id)
         if cat is None:
             raise HTTPException(status_code=422, detail="Category not found")
         tx_type = patch.get("type") or existing.type
@@ -411,9 +419,10 @@ async def transaction_update(
 async def transaction_delete(
     request: Request,
     transaction_id: int,
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    tx = get_transaction(db, transaction_id)
+    tx = get_transaction(db, transaction_id, user_id=user.id)
     if tx is None:
         return HTMLResponse("Transaction not found", status_code=404)
 
@@ -447,6 +456,7 @@ async def transaction_list_json(
     date_to: str | None = Query(None, alias="to"),
     limit: int = Query(100, alias="limit"),
     offset: int = Query(0, alias="offset"),
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     parsed_account_id = None
@@ -477,7 +487,7 @@ async def transaction_list_json(
         except ValueError:
             pass
 
-    filters: dict = {"limit": limit, "offset": offset}
+    filters: dict = {"limit": limit, "offset": offset, "user_id": user.id}
     if parsed_account_id is not None:
         filters["account_id"] = parsed_account_id
     if parsed_type is not None:
@@ -493,9 +503,10 @@ async def transaction_list_json(
 @router.get("/api/transactions/{transaction_id}", response_model=TransactionRead)
 async def transaction_get_json(
     transaction_id: int,
+    user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    tx = get_transaction(db, transaction_id)
+    tx = get_transaction(db, transaction_id, user_id=user.id)
     if tx is None:
         raise HTTPException(status_code=404, detail="Transaction not found")
     return tx

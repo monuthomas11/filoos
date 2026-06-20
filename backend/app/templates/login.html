@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mx-auto max-w-md">
+  <h1 class="mb-4 text-2xl font-semibold">Sign in</h1>
+  <p class="mb-6 text-sm text-neutral-600">Use your Google account to sign in.</p>
+
+  <a href="/auth/login" class="inline-flex items-center gap-2 rounded-md bg-white px-4 py-2 text-sm font-medium text-neutral-700 shadow hover:bg-neutral-50">
+    <img src="https://www.google.com/favicon.ico" alt="Google" class="h-4 w-4" />
+    Sign in with Google
+  </a>
+</div>
+{% endblock %}

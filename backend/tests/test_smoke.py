@@ -18,6 +18,12 @@ def test_dashboard_renders(client):
 
 
 def test_static_css_served(client):
-    response = client.get("/static/css/app.css")
+    response = client.get("/static/css/app.compiled.css")
     assert response.status_code == 200
     assert "text/css" in response.headers["content-type"]
+
+
+def test_dashboard_uses_compiled_css(client):
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "/static/css/app.compiled.css" in response.text

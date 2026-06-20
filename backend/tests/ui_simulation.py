@@ -23,7 +23,17 @@ def run_simulation():
     # 2. Account Workflow
     print("\n[2/5] Account CRUD Workflow...")
     # Create
-    r = client.post("/accounts", data={"name": "UI Test Account", "type": "bank", "currency": "INR", "opening_balance": "5000", "is_active": "true"}, headers={"HX-Request": "true"})
+    r = client.post(
+        "/accounts",
+        data={
+            "name": "UI Test Account",
+            "type": "bank",
+            "currency": "INR",
+            "opening_balance": "5000",
+            "is_active": "true",
+        },
+        headers={"HX-Request": "true"},
+    )
     assert r.status_code == 200
     assert r.headers["HX-Redirect"] == "/accounts"
 
@@ -33,7 +43,11 @@ def run_simulation():
     print(f"OK - Created account with ID: {acc_id}")
 
     # Edit (PATCH - uncheck active)
-    r = client.patch(f"/accounts/{acc_id}", data={"name": "UI Test Updated", "is_active": "false"}, headers={"HX-Request": "true"})
+    r = client.patch(
+        f"/accounts/{acc_id}",
+        data={"name": "UI Test Updated", "is_active": "false"},
+        headers={"HX-Request": "true"},
+    )
     assert r.status_code == 200
 
     acc = client.get(f"/api/accounts/{acc_id}").json()
@@ -44,10 +58,17 @@ def run_simulation():
     # 3. Transaction Workflow
     print("\n[3/5] Transaction CRUD Workflow...")
     # Create
-    r = client.post("/transactions", data={
-        "type": "expense", "account_id": str(acc_id), "amount": "1000",
-        "description": "UI Test Expense", "date": "2026-06-03"
-    }, headers={"HX-Request": "true"})
+    r = client.post(
+        "/transactions",
+        data={
+            "type": "expense",
+            "account_id": str(acc_id),
+            "amount": "1000",
+            "description": "UI Test Expense",
+            "date": "2026-06-03",
+        },
+        headers={"HX-Request": "true"},
+    )
     assert r.status_code == 200
     assert r.headers["HX-Redirect"] == "/transactions"
 
@@ -64,13 +85,31 @@ def run_simulation():
     # 4. Transfer Workflow
     print("\n[4/5] Transfer Workflow...")
     # Need second account
-    client.post("/accounts", data={"name": "Acc2", "type": "cash", "currency": "INR", "opening_balance": "0", "is_active": "true"}, headers={"HX-Request": "true"})
+    client.post(
+        "/accounts",
+        data={
+            "name": "Acc2",
+            "type": "cash",
+            "currency": "INR",
+            "opening_balance": "0",
+            "is_active": "true",
+        },
+        headers={"HX-Request": "true"},
+    )
     acc2_id = next(a["id"] for a in client.get("/api/accounts").json() if a["name"] == "Acc2")
 
-    r = client.post("/transactions", data={
-        "type": "transfer", "from_account_id": str(acc_id), "to_account_id": str(acc2_id),
-        "amount": "500", "description": "UI Test Transfer", "date": "2026-06-03"
-    }, headers={"HX-Request": "true"})
+    r = client.post(
+        "/transactions",
+        data={
+            "type": "transfer",
+            "from_account_id": str(acc_id),
+            "to_account_id": str(acc2_id),
+            "amount": "500",
+            "description": "UI Test Transfer",
+            "date": "2026-06-03",
+        },
+        headers={"HX-Request": "true"},
+    )
     assert r.status_code == 200
     assert r.headers["HX-Redirect"] == "/transactions"
     print("OK - Created transfer.")

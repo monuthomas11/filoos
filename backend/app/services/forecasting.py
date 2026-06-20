@@ -18,14 +18,14 @@ from app.models.transaction import Transaction, TransactionType
 _forecast_cache: dict[str, tuple[float, Any]] = {}
 
 
-def _cache_key(scope: str, horizon: int, today: datetime.date) -> str:
-    return f"{scope}:{horizon}:{today.isoformat()}"
+def _cache_key(scope: str, user_id: int, horizon: int, today: datetime.date) -> str:
+    return f"{scope}:{user_id}:{horizon}:{today.isoformat()}"
 
 
 def _cached_or_compute(
-    scope: str, horizon: int, today: datetime.date, ttl: int, fn
+    scope: str, user_id: int, horizon: int, today: datetime.date, ttl: int, fn
 ) -> Any:
-    key = _cache_key(scope, horizon, today)
+    key = _cache_key(scope, user_id, horizon, today)
     now = time.time()
 
     # Evict stale entries older than 2× TTL
@@ -48,6 +48,7 @@ def _clear_cache() -> None:
 
 def _daily_series(
     db: Session,
+    user_id: int,
     type_filter: TransactionType,
     days: int,
     end_date: datetime.date,
@@ -63,6 +64,7 @@ def _daily_series(
             Transaction.date >= start,
             Transaction.date <= end_date,
             Transaction.type == type_filter,
+            Transaction.user_id == user_id,
         )
         .group_by(Transaction.date)
         .order_by(Transaction.date)
@@ -90,9 +92,7 @@ def _ema(values: list[float], alpha: float = 0.3) -> list[float]:
     return result
 
 
-def _seasonal_factors(
-    dates: list[datetime.date], amounts: list[float]
-) -> dict[int, float]:
+def _seasonal_factors(dates: list[datetime.date], amounts: list[float]) -> dict[int, float]:
     """Day-of-week seasonal adjustment: mean(weekday) - overall_mean."""
     overall_mean = float(np.mean(amounts)) if amounts else 0.0
     weekday_vals: dict[int, list[float]] = {i: [] for i in range(7)}
@@ -145,6 +145,7 @@ def _decompose(
 
 def _compute_forecast(
     db: Session,
+    user_id: int,
     type_filter: TransactionType,
     horizon: int,
     today: datetime.date | None = None,
@@ -161,7 +162,7 @@ def _compute_forecast(
     if today is None:
         today = datetime.date.today()
 
-    dates, amounts = _daily_series(db, type_filter, history_days, today)
+    dates, amounts = _daily_series(db, user_id, type_filter, history_days, today)
     decomposed = _decompose(dates, amounts)
     has_data = bool(decomposed["trend"])
 
@@ -209,6 +210,7 @@ def _compute_forecast(
 
 def expense_forecast(
     db: Session,
+    user_id: int,
     horizon: int = 30,
     today: datetime.date | None = None,
 ) -> dict[str, Any]:
@@ -220,13 +222,18 @@ def expense_forecast(
     settings = get_settings()
     ttl = settings.forecast_cache_ttl_seconds
     return _cached_or_compute(
-        "expense", horizon, today, ttl,
-        lambda: _compute_forecast(db, TransactionType.EXPENSE, horizon, today),
+        "expense",
+        user_id,
+        horizon,
+        today,
+        ttl,
+        lambda: _compute_forecast(db, user_id, TransactionType.EXPENSE, horizon, today),
     )
 
 
 def balance_projection(
     db: Session,
+    user_id: int,
     horizon: int = 90,
     today: datetime.date | None = None,
 ) -> dict[str, Any]:
@@ -242,16 +249,14 @@ def balance_projection(
     if today is None:
         today = datetime.date.today()
 
-    # Current total balance across all active accounts (single query)
-    accounts = list_accounts(db, active_only=True)
+    # Current total balance across all user's active accounts (single query)
+    accounts = list_accounts(db, active_only=True, user_id=user_id)
     current_balance = compute_total_balance(accounts, db)
 
     # Decompose income and expense series
-    inc_dates, inc_amounts = _daily_series(
-        db, TransactionType.INCOME, history_days, today
-    )
+    inc_dates, inc_amounts = _daily_series(db, user_id, TransactionType.INCOME, history_days, today)
     exp_dates, exp_amounts = _daily_series(
-        db, TransactionType.EXPENSE, history_days, today
+        db, user_id, TransactionType.EXPENSE, history_days, today
     )
 
     inc_dec = _decompose(inc_dates, inc_amounts)
@@ -264,9 +269,7 @@ def balance_projection(
 
     # Combined residual standard deviation for confidence bands
     all_residuals = inc_dec["residuals"] + exp_dec["residuals"]
-    combined_std = (
-        float(np.std(all_residuals, ddof=1)) if len(all_residuals) > 1 else 0.0
-    )
+    combined_std = float(np.std(all_residuals, ddof=1)) if len(all_residuals) > 1 else 0.0
 
     z = 1.96
     starting_balance = float(current_balance)

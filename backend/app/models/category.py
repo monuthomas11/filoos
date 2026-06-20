@@ -24,6 +24,7 @@ class Category(Base):
     __tablename__ = "categories"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
     type: Mapped[CategoryType] = mapped_column(
         SAEnum(CategoryType, name="category_type_enum", create_constraint=True),
@@ -31,8 +32,8 @@ class Category(Base):
     )
     color: Mapped[str | None] = mapped_column(String(7), nullable=True)
     icon: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    parent_id: Mapped[int | None] = mapped_column(
-        ForeignKey("categories.id"), nullable=True
-    )
+    parent_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"), nullable=True)
 
-    transactions = relationship("Transaction", back_populates="category", cascade="all, delete-orphan")
+    transactions = relationship(
+        "Transaction", back_populates="category", cascade="all, delete-orphan"
+    )

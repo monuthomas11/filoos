@@ -16,7 +16,7 @@ from app.crud.account import (
     list_accounts,
     update_account,
 )
-from app.deps import get_db
+from app.deps import get_current_user, get_db
 from app.models.account import AccountType
 from app.schemas.account import AccountCreate, AccountRead, AccountUpdate
 from app.templates import templates
@@ -31,8 +31,10 @@ router = APIRouter()
 
 
 @router.get("/accounts", response_class=HTMLResponse)
-async def account_list_page(request: Request, db: Session = Depends(get_db)):
-    accounts = list_accounts(db)
+async def account_list_page(
+    request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)
+):
+    accounts = list_accounts(db, user_id=user.id)
     balances: dict[int, Decimal] = {}
     for a in accounts:
         balances[a.id] = compute_balance(a, db)
@@ -44,7 +46,7 @@ async def account_list_page(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/accounts/new", response_class=HTMLResponse)
-async def account_create_page(request: Request):
+async def account_create_page(request: Request, user=Depends(get_current_user)):
     return templates.TemplateResponse(
         request,
         "accounts/form.html",
@@ -54,9 +56,9 @@ async def account_create_page(request: Request):
 
 @router.get("/accounts/{account_id}/edit", response_class=HTMLResponse)
 async def account_edit_page(
-    request: Request, account_id: int, db: Session = Depends(get_db)
+    request: Request, account_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)
 ):
-    account = get_account(db, account_id)
+    account = get_account(db, account_id, user_id=user.id)
     if account is None:
         return HTMLResponse("Account not found", status_code=404)
     return templates.TemplateResponse(
@@ -82,6 +84,7 @@ async def account_create(
     icon: str | None = Form(None),
     is_active: bool = Form(True),
     db: Session = Depends(get_db),
+    user=Depends(get_current_user),
 ):
     data = AccountCreate(
         name=name,
@@ -92,7 +95,7 @@ async def account_create(
         icon=icon or None,
         is_active=is_active,
     )
-    account = create_account(db, data)
+    account = create_account(db, data, user_id=user.id)
     if is_htmx(request):
         return Response(status_code=200, headers={"HX-Redirect": "/accounts"})
     return _respond_with_card(request, account, db)
@@ -110,6 +113,7 @@ async def account_update(
     icon: str | None = Form(None),
     is_active: bool | None = Form(None),
     db: Session = Depends(get_db),
+    user=Depends(get_current_user),
 ):
     # Only include non-None fields so that exclude_unset works correctly
     # (Form defaults to None for absent fields, but we don't want to
@@ -131,7 +135,7 @@ async def account_update(
         patch["is_active"] = is_active
 
     data = AccountUpdate(**patch)
-    account = update_account(db, account_id, data)
+    account = update_account(db, account_id, data, user_id=user.id)
     if account is None:
         return HTMLResponse("Account not found", status_code=404)
     if is_htmx(request):
@@ -144,8 +148,9 @@ async def account_delete(
     request: Request,
     account_id: int,
     db: Session = Depends(get_db),
+    user=Depends(get_current_user),
 ):
-    ok, error_msg = delete_account(db, account_id)
+    ok, error_msg = delete_account(db, account_id, user_id=user.id)
     if not ok:
         if error_msg == "Account not found":
             return HTMLResponse("Account not found", status_code=404)
@@ -170,21 +175,25 @@ async def account_delete(
 
 
 @router.get("/api/accounts", response_model=list[AccountRead])
-async def account_list_json(db: Session = Depends(get_db)):
-    return list_accounts(db)
+async def account_list_json(db: Session = Depends(get_db), user=Depends(get_current_user)):
+    return list_accounts(db, user_id=user.id)
 
 
 @router.get("/api/accounts/{account_id}", response_model=AccountRead)
-async def account_get_json(account_id: int, db: Session = Depends(get_db)):
-    account = get_account(db, account_id)
+async def account_get_json(
+    account_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)
+):
+    account = get_account(db, account_id, user_id=user.id)
     if account is None:
         raise HTTPException(status_code=404, detail="Account not found")
     return account
 
 
 @router.get("/api/accounts/{account_id}/balance")
-async def account_balance_json(account_id: int, db: Session = Depends(get_db)):
-    account = get_account(db, account_id)
+async def account_balance_json(
+    account_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)
+):
+    account = get_account(db, account_id, user_id=user.id)
     if account is None:
         raise HTTPException(status_code=404, detail="Account not found")
     return {"account_id": account_id, "balance": str(compute_balance(account, db))}

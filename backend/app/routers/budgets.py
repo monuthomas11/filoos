@@ -17,7 +17,7 @@ from app.crud.budget import (
     update_budget,
 )
 from app.crud.category import list_categories
-from app.deps import get_db
+from app.deps import get_current_user, get_db
 from app.models.budget import BudgetPeriod
 from app.schemas.budget import BudgetCreate, BudgetRead, BudgetUpdate
 from app.services.analytics import budget_progress
@@ -33,10 +33,12 @@ router = APIRouter()
 
 
 @router.get("/budgets", response_class=HTMLResponse)
-async def budget_list_page(request: Request, db: Session = Depends(get_db)):
-    budgets = list_budgets(db)
+async def budget_list_page(
+    request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)
+):
+    budgets = list_budgets(db, user_id=user.id)
     today = datetime.date.today()
-    progress = budget_progress(db, today.year, today.month)
+    progress = budget_progress(db, user.id, today.year, today.month)
     progress_map = {p["budget_id"]: p for p in progress}
     return templates.TemplateResponse(
         request,
@@ -51,8 +53,10 @@ async def budget_list_page(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/budgets/new", response_class=HTMLResponse)
-async def budget_create_page(request: Request, db: Session = Depends(get_db)):
-    categories = list_categories(db)
+async def budget_create_page(
+    request: Request, db: Session = Depends(get_db), user=Depends(get_current_user)
+):
+    categories = list_categories(db, user_id=user.id)
     return templates.TemplateResponse(
         request,
         "budgets/form.html",
@@ -68,12 +72,12 @@ async def budget_create_page(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/budgets/{budget_id}/edit", response_class=HTMLResponse)
 async def budget_edit_page(
-    request: Request, budget_id: int, db: Session = Depends(get_db)
+    request: Request, budget_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)
 ):
-    budget = get_budget(db, budget_id)
+    budget = get_budget(db, budget_id, user_id=user.id)
     if budget is None:
         return HTMLResponse("Budget not found", status_code=404)
-    categories = list_categories(db)
+    categories = list_categories(db, user_id=user.id)
     return templates.TemplateResponse(
         request,
         "budgets/form.html",
@@ -101,6 +105,7 @@ async def budget_create(
     start_date: str = Form(...),
     is_active: bool = Form(True),
     db: Session = Depends(get_db),
+    user=Depends(get_current_user),
 ):
     parsed_date = parse_date_or_422(start_date, "start_date")
     if amount <= 0:
@@ -113,7 +118,7 @@ async def budget_create(
         start_date=parsed_date,
         is_active=is_active,
     )
-    budget = create_budget(db, data)
+    budget = create_budget(db, data, user_id=user.id)
     if is_htmx(request):
         return Response(status_code=200, headers={"HX-Redirect": "/budgets"})
     return BudgetRead.model_validate(budget)
@@ -129,6 +134,7 @@ async def budget_update(
     start_date: str | None = Form(None),
     is_active: bool | None = Form(None),
     db: Session = Depends(get_db),
+    user=Depends(get_current_user),
 ):
     parsed_date = parse_date_or_422(start_date, "start_date") if start_date is not None else None
 
@@ -147,7 +153,7 @@ async def budget_update(
         patch["is_active"] = is_active
 
     data = BudgetUpdate(**patch)
-    budget = update_budget(db, budget_id, data)
+    budget = update_budget(db, budget_id, data, user_id=user.id)
     if budget is None:
         return HTMLResponse("Budget not found", status_code=404)
     if is_htmx(request):
@@ -160,8 +166,9 @@ async def budget_delete(
     request: Request,
     budget_id: int,
     db: Session = Depends(get_db),
+    user=Depends(get_current_user),
 ):
-    ok, error_msg = delete_budget(db, budget_id)
+    ok, error_msg = delete_budget(db, budget_id, user_id=user.id)
     if not ok:
         if error_msg == "Budget not found":
             return HTMLResponse("Budget not found", status_code=404)
@@ -179,13 +186,15 @@ async def budget_delete(
 
 
 @router.get("/api/budgets", response_model=list[BudgetRead])
-async def budget_list_json(db: Session = Depends(get_db)):
-    return list_budgets(db)
+async def budget_list_json(db: Session = Depends(get_db), user=Depends(get_current_user)):
+    return list_budgets(db, user_id=user.id)
 
 
 @router.get("/api/budgets/{budget_id}", response_model=BudgetRead)
-async def budget_get_json(budget_id: int, db: Session = Depends(get_db)):
-    budget = get_budget(db, budget_id)
+async def budget_get_json(
+    budget_id: int, db: Session = Depends(get_db), user=Depends(get_current_user)
+):
+    budget = get_budget(db, budget_id, user_id=user.id)
     if budget is None:
         raise HTTPException(status_code=404, detail="Budget not found")
     return budget

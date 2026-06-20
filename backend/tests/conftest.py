@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import tempfile
 from collections.abc import Generator
 from pathlib import Path
@@ -11,11 +12,16 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+# Allow testserver for TestClient before app settings are loaded.
+os.environ.setdefault("FF_ALLOWED_HOSTS", "localhost,127.0.0.1,testserver")
+
 # Import all models so their tables are registered on Base.metadata.
 import app.models  # noqa: E402, F401
 from app.config import get_settings  # noqa: E402
 from app.database import Base, get_db  # noqa: E402
+from app.deps import get_current_user  # noqa: E402
 from app.main import app  # noqa: E402
+from app.models.user import User  # noqa: E402
 
 # ------------------------------------------------------------------
 # Temporary SQLite file for each test so the TestClient background
@@ -65,6 +71,14 @@ def client(tmp_db_path: Path) -> Generator[TestClient, None, None]:
             db.close()
 
     app.dependency_overrides[get_db] = _override_get_db
+    # Create a default test user and override authentication dependency.
+    with TestingSessionLocal() as db:
+        user = User(email="test@example.com", name="Test User", google_sub="test-sub")
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    app.dependency_overrides[get_current_user] = lambda: user
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.clear()

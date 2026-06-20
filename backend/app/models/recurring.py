@@ -28,11 +28,14 @@ class RecurringRule(Base, TimestampMixin):
     __tablename__ = "recurring_rules"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"), nullable=True, index=True)
     account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False)
     category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"), nullable=True)
     amount: Mapped[Decimal] = mapped_column(Numeric(18, 2), nullable=False)
     type: Mapped[RecurringTransactionType] = mapped_column(
-        SAEnum(RecurringTransactionType, name="recurring_transaction_type_enum", create_constraint=True),
+        SAEnum(
+            RecurringTransactionType, name="recurring_transaction_type_enum", create_constraint=True
+        ),
         nullable=False,
     )
     description: Mapped[str] = mapped_column(String(200), nullable=False)

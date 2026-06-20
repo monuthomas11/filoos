@@ -5,7 +5,7 @@ A personal expense tracker with a lightweight, beautiful dashboard and balance p
 - **Stack**: Python 3.11+, FastAPI, SQLAlchemy 2, Alembic, SQLite, Jinja2, HTMX, Alpine.js, Tailwind CSS, Chart.js
 - **Forecasting**: lightweight statistics (exponential moving average + day-of-week seasonality + linear trend, with confidence bands)
 - **Currency**: configurable (default **INR**)
-- **Mode**: local-first, single user
+- **Mode**: multi-user with Google SSO (each user sees only their own data)
 - **Theme**: clean neutral slate/indigo, light & dark mode
 
 See [`PLAN.md`](./PLAN.md) for the full design, architecture, and phased roadmap, and [`STATUS.md`](./STATUS.md) for a quick snapshot of the current phase and what's next.
@@ -21,7 +21,8 @@ See [`PLAN.md`](./PLAN.md) for the full design, architecture, and phased roadmap
 | 5. Categories & Budgets | done | Category CRUD, budget progress bars, 45 tests (21 categories + 24 budgets) |
 | 6. Recurring rules | done | Model, CRUD, materializer, next-occurrences preview, 36 tests |
 | 7. Predictions | done | Forecasting engine (EMA + day-of-week seasonality + confidence bands), balance projection chart, runway warning, 22 tests |
-| 8. Polish | done | Dashboard period filter, seed hardening, error pages, a11y, compiled Tailwind, deploy notes — **202 tests total** |
+| 8. Polish | done | Dashboard period filter, seed hardening, error pages, a11y, compiled Tailwind, deploy notes |
+| 9. Auth (Google SSO) | done | Google OAuth login, session-based auth, per-user data isolation, profile header, sign-out button |
 
 ## Quick start
 
@@ -37,7 +38,29 @@ The one-shot dev launcher creates a venv, installs deps, applies migrations, and
 ./scripts/dev.sh
 ```
 
-Then open <http://127.0.0.1:8000>.
+Then open <http://127.0.0.1:8000>. You'll be redirected to the login page.
+
+### Google OAuth setup
+
+To enable sign-in, create OAuth 2.0 credentials:
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a project (or select existing)
+3. **APIs & Services > OAuth consent screen** — choose **External**, fill app name/email
+4. **APIs & Services > Credentials** — **Create Credentials > OAuth client ID**
+   - Application type: **Web application**
+   - Authorized redirect URIs: `http://127.0.0.1:8000/auth/google/callback`
+5. Copy the **Client ID** and **Client Secret**
+
+Add to your `.env` file (at project root):
+
+```
+FF_GOOGLE_CLIENT_ID=your-client-id
+FF_GOOGLE_CLIENT_SECRET=your-client-secret
+FF_SESSION_SECRET=any-random-secret-string
+```
+
+Restart the server. "Sign in with Google" will work. In **Testing** mode, add test users in the OAuth consent screen.
 
 ### Manual setup
 
@@ -78,8 +101,12 @@ pytest
 ## Endpoints (current)
 
 | Path | Purpose |
-|---|---|---|
+|---|---|
 | `GET /` | Dashboard (real balances, recent transactions, Chart.js charts, budget progress) |
+| `GET /login` | Login page (Sign in with Google) |
+| `GET /auth/login` | Redirects to Google OAuth consent screen |
+| `GET /auth/google/callback` | OAuth callback — upserts user, sets session, redirects to `/` |
+| `POST /auth/logout` | Clears session, redirects to `/login` |
 | `GET /accounts` | Account list (CRUD) |
 | `GET /transactions` | Transaction list (filterable) |
 | `GET /categories` | Category list (CRUD) |
@@ -106,14 +133,14 @@ FutureFunds/
 │   │   ├── main.py      # App factory, routes, lifespan
 │   │   ├── config.py    # pydantic-settings (.env aware)
 │   │   ├── database.py  # SQLAlchemy engine, Base, session
-│   │   ├── deps.py      # FastAPI dependencies
-│   │   ├── models/      # ORM models (populated per phase)
-│   │   ├── schemas/     # Pydantic DTOs (per phase)
-│   │   ├── crud/        # DB operations (per phase)
-│   │   ├── routers/     # Page + API routers (per phase)
-│   │   ├── services/    # Business logic (per phase)
-│   │   ├── templates/   # Jinja2 (base, dashboard, partials)
-│   │   └── static/      # CSS, JS, future assets
+│   │   ├── deps.py      # FastAPI dependencies (get_current_user)
+│   │   ├── models/      # ORM models (User, Account, Transaction, etc.)
+│   │   ├── schemas/     # Pydantic DTOs
+│   │   ├── crud/        # DB operations
+│   │   ├── routers/     # Page + API + auth routers
+│   │   ├── services/    # Business logic
+│   │   ├── templates/   # Jinja2 (base, dashboard, login, partials)
+│   │   └── static/      # CSS, JS
 │   ├── alembic/         # Database migrations
 │   ├── tests/           # pytest suite
 │   ├── pyproject.toml

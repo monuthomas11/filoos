@@ -21,7 +21,6 @@ def test_settings_load_with_defaults():
         assert settings.currency_symbol == "₹"
         assert settings.forecast_history_days == 180
         assert settings.forecast_cache_ttl_seconds == 300
-        assert settings.recurring_auto_materialize is True
 
 
 def test_settings_load_with_ff_prefix():
@@ -36,7 +35,6 @@ def test_settings_load_with_ff_prefix():
         "FF_CURRENCY_SYMBOL": "$",
         "FF_FORECAST_HISTORY_DAYS": "365",
         "FF_FORECAST_CACHE_TTL_SECONDS": "600",
-        "FF_RECURRING_AUTO_MATERIALIZE": "false",
     }
     with patch.dict(os.environ, env_with_prefix, clear=False):
         settings = Settings()
@@ -47,7 +45,6 @@ def test_settings_load_with_ff_prefix():
         assert settings.currency_symbol == "$"
         assert settings.forecast_history_days == 365
         assert settings.forecast_cache_ttl_seconds == 600
-        assert settings.recurring_auto_materialize is False
 
 
 def test_settings_legacy_env_vars_backward_compatibility():
@@ -66,7 +63,11 @@ def test_settings_legacy_env_vars_backward_compatibility():
     env_clean.update(env_legacy)
 
     with patch.dict(os.environ, env_clean, clear=True):
-        settings = Settings()
+        # Disable .env loading so the test is isolated from the project's
+        # checked-in configuration. The legacy migration only fires when the
+        # FF_-prefixed counterpart is unset in the environment AND not pulled
+        # in from the .env file.
+        settings = Settings(_env_file=None)
         assert settings.app_name == "LegacyApp"
         assert settings.app_env == "production"
         assert settings.debug is False
@@ -86,8 +87,11 @@ def test_settings_ff_prefix_takes_precedence_over_legacy():
     }
     with patch.dict(os.environ, env_mixed, clear=False):
         # Clear any other FF_ or legacy vars that might interfere
-        env_clean = {k: v for k, v in os.environ.items()
-                     if k in env_mixed or not k.startswith(("FF_", "APP_"))}
+        env_clean = {
+            k: v
+            for k, v in os.environ.items()
+            if k in env_mixed or not k.startswith(("FF_", "APP_"))
+        }
         env_clean.update(env_mixed)
         with patch.dict(os.environ, env_clean, clear=True):
             settings = Settings()

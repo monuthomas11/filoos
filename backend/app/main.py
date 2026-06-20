@@ -2,32 +2,46 @@
 
 from __future__ import annotations
 
+import logging
+import time
+import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
 from fastapi.exceptions import HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
+from starlette.middleware.sessions import SessionMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.config import get_settings
 from app.database import ensure_data_dir, session_scope
+from app.logging_config import configure_logging
 from app.templates import templates
+
+# Logging must be configured before any module under ``app.*`` acquires a
+# logger, otherwise their handlers are set up against the root defaults.
+configure_logging()
+logger = logging.getLogger("app")
 
 BASE_DIR = Path(__file__).resolve().parent
 settings = get_settings()
+logger.info(
+    "starting FutureFunds",
+    extra={"version": "0.1.0", "env": settings.app_env, "debug": settings.debug},
+)
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    """Application lifespan: ensure SQLite dir exists; auto-materialize recurring rules."""
+    """Application lifespan: ensure SQLite dir exists."""
     ensure_data_dir()
-    if settings.recurring_auto_materialize:
-        from app.services.recurring import materialize_all
-
-        with session_scope() as db:
-            materialize_all(db)
     yield
+    logger.info("FutureFunds shutting down")
 
 
 app = FastAPI(
@@ -36,6 +50,75 @@ app = FastAPI(
     debug=settings.debug,
     lifespan=lifespan,
 )
+
+# Session + security middleware (Phase 2)
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=settings.session_secret or "",
+    max_age=settings.session_max_age_seconds,
+    same_site="lax",
+    https_only=settings.session_cookie_secure,
+)
+if not settings.is_development:
+    app.add_middleware(HTTPSRedirectMiddleware)
+app.add_middleware(
+    TrustedHostMiddleware,
+    allowed_hosts=[h.strip() for h in settings.allowed_hosts.split(",") if h.strip()],
+)
+
+
+# ---------------------------------------------------------------------------
+# Auth exception handler — redirect browsers to /login on 401
+# ---------------------------------------------------------------------------
+
+from app.deps import _NotAuthenticated
+
+
+@app.exception_handler(_NotAuthenticated)
+async def not_authenticated_handler(request: Request, exc: _NotAuthenticated):
+    accept = request.headers.get("accept", "")
+    if "text/html" in accept:
+        return RedirectResponse(url="/login", status_code=303)
+    return Response(status_code=401, content=exc.detail)
+
+
+# ---------------------------------------------------------------------------
+# Request logging middleware
+# ---------------------------------------------------------------------------
+
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    """Log one line per request with method, path, status, duration, request_id."""
+    request_id = request.headers.get("x-request-id") or uuid.uuid4().hex[:12]
+    start = time.perf_counter()
+    try:
+        response = await call_next(request)
+    except Exception:
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        logger.exception(
+            "request failed",
+            extra={
+                "request_id": request_id,
+                "method": request.method,
+                "path": request.url.path,
+                "elapsed_ms": round(elapsed_ms, 2),
+            },
+        )
+        raise
+    elapsed_ms = (time.perf_counter() - start) * 1000
+    logger.info(
+        "request",
+        extra={
+            "request_id": request_id,
+            "method": request.method,
+            "path": request.url.path,
+            "status": response.status_code,
+            "elapsed_ms": round(elapsed_ms, 2),
+        },
+    )
+    response.headers["x-request-id"] = request_id
+    return response
 
 
 # ---------------------------------------------------------------------------
@@ -52,6 +135,10 @@ async def not_found_handler(_request: Request, _exc: HTTPException) -> HTMLRespo
 async def server_error_handler(request: Request, exc: Exception) -> HTMLResponse:
     if isinstance(exc, HTTPException):
         raise exc
+    logger.exception(
+        "unhandled exception",
+        extra={"path": request.url.path, "method": request.method},
+    )
     return templates.TemplateResponse(request, "500.html", status_code=500)
 
 
@@ -68,6 +155,7 @@ app.mount(
 # ---------------------------------------------------------------------------
 
 from app.routers.accounts import router as accounts_router  # noqa: E402
+from app.routers.auth import router as auth_router  # noqa: E402
 from app.routers.budgets import router as budgets_router  # noqa: E402
 from app.routers.categories import router as categories_router  # noqa: E402
 from app.routers.dashboard import router as dashboard_router  # noqa: E402
@@ -84,13 +172,47 @@ app.include_router(budgets_router)
 app.include_router(recurring_router)
 app.include_router(dashboard_router)
 app.include_router(predictions_router)
+app.include_router(auth_router)
 
 
 # ---------------------------------------------------------------------------
 # Health check (kept on root for quick probing)
 # ---------------------------------------------------------------------------
 
+
 @app.get("/healthz")
 async def healthz() -> dict[str, str]:
-    """Liveness probe."""
+    """Liveness probe. Returns 200 as long as the process is alive."""
     return {"status": "ok", "app": settings.app_name}
+
+
+@app.get("/readyz")
+async def readyz(response: Response) -> dict[str, str]:
+    """Readiness probe.
+
+    Verifies that the database is reachable and that core settings are sane.
+    Returns 503 if any check fails so a load balancer / orchestrator can
+    stop sending traffic.
+    """
+    checks: dict[str, str] = {}
+    healthy = True
+
+    try:
+        with session_scope() as db:
+            db.execute(text("SELECT 1"))
+        checks["database"] = "ok"
+    except SQLAlchemyError as exc:
+        healthy = False
+        checks["database"] = f"error: {exc.__class__.__name__}"
+        logger.error("readiness check: database unreachable", exc_info=exc)
+
+    try:
+        checks["settings"] = "ok" if settings.app_name else "missing"
+        if not settings.app_name:
+            healthy = False
+    except Exception as exc:  # pragma: no cover — defensive
+        healthy = False
+        checks["settings"] = f"error: {exc.__class__.__name__}"
+
+    response.status_code = 200 if healthy else 503
+    return {"status": "ok" if healthy else "degraded", **checks}

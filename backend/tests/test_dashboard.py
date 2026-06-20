@@ -14,6 +14,7 @@ from app.crud.transaction import create_transaction
 from app.models.account import AccountType
 from app.models.category import CategoryType
 from app.models.transaction import TransactionType
+from app.models.user import User
 from app.schemas.account import AccountCreate
 from app.schemas.category import CategoryCreate
 from app.services.analytics import (
@@ -24,17 +25,37 @@ from app.services.analytics import (
 )
 
 
-def _seed_account(db: Session, name: str = "Test",
-                  type_: AccountType = AccountType.BANK,
-                  balance: str = "0") -> None:
+def _seed_user(db: Session) -> int:
+    user = User(email="test@example.com", name="Test User", google_sub="test-sub")
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user.id
+
+
+def _seed_account(
+    db: Session,
+    user_id: int,
+    name: str = "Test",
+    type_: AccountType = AccountType.BANK,
+    balance: str = "0",
+) -> None:
     create_account(
         db,
         AccountCreate(name=name, type=type_, opening_balance=Decimal(balance)),
+        user_id=user_id,
     )
 
 
-def _seed_tx(db: Session, account_id: int, amount: str, type_: TransactionType,
-             description: str, days_ago: int = 0) -> None:
+def _seed_tx(
+    db: Session,
+    user_id: int,
+    account_id: int,
+    amount: str,
+    type_: TransactionType,
+    description: str,
+    days_ago: int = 0,
+) -> None:
     date = datetime.date.today() - datetime.timedelta(days=days_ago)
     create_transaction(
         db=db,
@@ -43,6 +64,7 @@ def _seed_tx(db: Session, account_id: int, amount: str, type_: TransactionType,
         type_=type_,
         description=description,
         date=date,
+        user_id=user_id,
     )
 
 
@@ -52,7 +74,8 @@ def _seed_tx(db: Session, account_id: int, amount: str, type_: TransactionType,
 
 
 def test_monthly_summary_empty(db_session: Session):
-    result = monthly_summary(db_session)
+    uid = _seed_user(db_session)
+    result = monthly_summary(db_session, uid)
     assert result["income"] == "0"
     assert result["expense"] == "0"
     assert result["net"] == "0"
@@ -60,12 +83,13 @@ def test_monthly_summary_empty(db_session: Session):
 
 
 def test_monthly_summary_with_data(db_session: Session):
-    _seed_account(db_session, "Acct", balance="1000")
-    _seed_tx(db_session, 1, "5000", TransactionType.INCOME, "Salary", days_ago=0)
-    _seed_tx(db_session, 1, "-2000", TransactionType.EXPENSE, "Rent", days_ago=0)
-    _seed_tx(db_session, 1, "-500", TransactionType.EXPENSE, "Groceries", days_ago=0)
+    uid = _seed_user(db_session)
+    _seed_account(db_session, uid, "Acct", balance="1000")
+    _seed_tx(db_session, uid, 1, "5000", TransactionType.INCOME, "Salary", days_ago=0)
+    _seed_tx(db_session, uid, 1, "-2000", TransactionType.EXPENSE, "Rent", days_ago=0)
+    _seed_tx(db_session, uid, 1, "-500", TransactionType.EXPENSE, "Groceries", days_ago=0)
 
-    result = monthly_summary(db_session)
+    result = monthly_summary(db_session, uid)
     assert result["income"] == "5000.00"
     assert result["expense"] == "2500.00"
     assert result["net"] == "2500.00"
@@ -73,12 +97,13 @@ def test_monthly_summary_with_data(db_session: Session):
 
 
 def test_daily_spending(db_session: Session):
-    _seed_account(db_session, "Acct", balance="1000")
-    _seed_tx(db_session, 1, "-100", TransactionType.EXPENSE, "Coffee", days_ago=0)
-    _seed_tx(db_session, 1, "-200", TransactionType.EXPENSE, "Lunch", days_ago=0)
-    _seed_tx(db_session, 1, "-50", TransactionType.EXPENSE, "Snacks", days_ago=1)
+    uid = _seed_user(db_session)
+    _seed_account(db_session, uid, "Acct", balance="1000")
+    _seed_tx(db_session, uid, 1, "-100", TransactionType.EXPENSE, "Coffee", days_ago=0)
+    _seed_tx(db_session, uid, 1, "-200", TransactionType.EXPENSE, "Lunch", days_ago=0)
+    _seed_tx(db_session, uid, 1, "-50", TransactionType.EXPENSE, "Snacks", days_ago=1)
 
-    series = daily_spending(db_session, days=7)
+    series = daily_spending(db_session, uid, days=7)
     assert len(series) == 7
     # Today should have 300 spending
     today_str = datetime.date.today().isoformat()
@@ -94,12 +119,13 @@ def test_daily_spending(db_session: Session):
 
 
 def test_category_breakdown(db_session: Session):
-    _seed_account(db_session, "Acct", balance="1000")
-    _seed_tx(db_session, 1, "5000", TransactionType.INCOME, "Salary", days_ago=0)
-    _seed_tx(db_session, 1, "-2000", TransactionType.EXPENSE, "Rent", days_ago=0)
-    _seed_tx(db_session, 1, "-500", TransactionType.EXPENSE, "Food", days_ago=0)
+    uid = _seed_user(db_session)
+    _seed_account(db_session, uid, "Acct", balance="1000")
+    _seed_tx(db_session, uid, 1, "5000", TransactionType.INCOME, "Salary", days_ago=0)
+    _seed_tx(db_session, uid, 1, "-2000", TransactionType.EXPENSE, "Rent", days_ago=0)
+    _seed_tx(db_session, uid, 1, "-500", TransactionType.EXPENSE, "Food", days_ago=0)
 
-    breakdown = category_breakdown(db_session)
+    breakdown = category_breakdown(db_session, uid)
     assert len(breakdown) == 2  # income and expense (no transfers)
     labels = {b["label"] for b in breakdown}
     assert "Income" in labels
@@ -112,23 +138,57 @@ def test_category_breakdown(db_session: Session):
 
 def test_category_breakdown_with_categories(db_session: Session):
     """When transactions have categories, breakdown should group by category."""
-    _seed_account(db_session, "Acct", balance="1000")
+    uid = _seed_user(db_session)
+    _seed_account(db_session, uid, "Acct", balance="1000")
 
-    food = create_category(db_session, CategoryCreate(name="Food", type=CategoryType.EXPENSE, color="#ff0000"))
-    rent = create_category(db_session, CategoryCreate(name="Rent", type=CategoryType.EXPENSE, color="#00ff00"))
-    salary = create_category(db_session, CategoryCreate(name="Salary", type=CategoryType.INCOME, color="#0000ff"))
+    food = create_category(
+        db_session,
+        CategoryCreate(name="Food", type=CategoryType.EXPENSE, color="#ff0000"),
+        user_id=uid,
+    )
+    rent = create_category(
+        db_session,
+        CategoryCreate(name="Rent", type=CategoryType.EXPENSE, color="#00ff00"),
+        user_id=uid,
+    )
+    salary = create_category(
+        db_session,
+        CategoryCreate(name="Salary", type=CategoryType.INCOME, color="#0000ff"),
+        user_id=uid,
+    )
 
-    create_transaction(db_session, account_id=1, amount=Decimal("5000"),
-                       type_=TransactionType.INCOME, description="Paycheck",
-                       date=datetime.date.today(), category_id=salary.id)
-    create_transaction(db_session, account_id=1, amount=Decimal("-2000"),
-                       type_=TransactionType.EXPENSE, description="Rent",
-                       date=datetime.date.today(), category_id=rent.id)
-    create_transaction(db_session, account_id=1, amount=Decimal("-500"),
-                       type_=TransactionType.EXPENSE, description="Groceries",
-                       date=datetime.date.today(), category_id=food.id)
+    create_transaction(
+        db_session,
+        account_id=1,
+        amount=Decimal("5000"),
+        type_=TransactionType.INCOME,
+        description="Paycheck",
+        date=datetime.date.today(),
+        category_id=salary.id,
+        user_id=uid,
+    )
+    create_transaction(
+        db_session,
+        account_id=1,
+        amount=Decimal("-2000"),
+        type_=TransactionType.EXPENSE,
+        description="Rent",
+        date=datetime.date.today(),
+        category_id=rent.id,
+        user_id=uid,
+    )
+    create_transaction(
+        db_session,
+        account_id=1,
+        amount=Decimal("-500"),
+        type_=TransactionType.EXPENSE,
+        description="Groceries",
+        date=datetime.date.today(),
+        category_id=food.id,
+        user_id=uid,
+    )
 
-    breakdown = category_breakdown(db_session)
+    breakdown = category_breakdown(db_session, uid)
     labels = {b["label"] for b in breakdown}
     assert "Food" in labels
     assert "Rent" in labels
@@ -143,18 +203,37 @@ def test_category_breakdown_with_categories(db_session: Session):
 
 def test_category_breakdown_mixed(db_session: Session):
     """Categories with transactions + uncategorized transactions coexist."""
-    _seed_account(db_session, "Acct", balance="1000")
+    uid = _seed_user(db_session)
+    _seed_account(db_session, uid, "Acct", balance="1000")
 
-    food = create_category(db_session, CategoryCreate(name="Food", type=CategoryType.EXPENSE, color="#ff0000"))
+    food = create_category(
+        db_session,
+        CategoryCreate(name="Food", type=CategoryType.EXPENSE, color="#ff0000"),
+        user_id=uid,
+    )
 
-    create_transaction(db_session, account_id=1, amount=Decimal("-300"),
-                       type_=TransactionType.EXPENSE, description="Groceries",
-                       date=datetime.date.today(), category_id=food.id)
-    create_transaction(db_session, account_id=1, amount=Decimal("-200"),
-                       type_=TransactionType.EXPENSE, description="Misc",
-                       date=datetime.date.today(), category_id=None)
+    create_transaction(
+        db_session,
+        account_id=1,
+        amount=Decimal("-300"),
+        type_=TransactionType.EXPENSE,
+        description="Groceries",
+        date=datetime.date.today(),
+        category_id=food.id,
+        user_id=uid,
+    )
+    create_transaction(
+        db_session,
+        account_id=1,
+        amount=Decimal("-200"),
+        type_=TransactionType.EXPENSE,
+        description="Misc",
+        date=datetime.date.today(),
+        category_id=None,
+        user_id=uid,
+    )
 
-    breakdown = category_breakdown(db_session)
+    breakdown = category_breakdown(db_session, uid)
     labels = {b["label"] for b in breakdown}
     assert "Food" in labels
     food_b = next(b for b in breakdown if b["label"] == "Food")
@@ -162,24 +241,34 @@ def test_category_breakdown_mixed(db_session: Session):
 
 
 def test_balance_history(db_session: Session):
-    _seed_account(db_session, "Acct", balance="1000")
-    _seed_tx(db_session, 1, "500", TransactionType.INCOME, "Deposit", days_ago=2)
-    _seed_tx(db_session, 1, "-200", TransactionType.EXPENSE, "Withdraw", days_ago=1)
+    uid = _seed_user(db_session)
+    _seed_account(db_session, uid, "Acct", balance="1000")
+    _seed_tx(db_session, uid, 1, "500", TransactionType.INCOME, "Deposit", days_ago=2)
+    _seed_tx(db_session, uid, 1, "-200", TransactionType.EXPENSE, "Withdraw", days_ago=1)
 
-    history = balance_history(db_session, 1, days=5)
+    history = balance_history(db_session, 1, uid, days=5)
     assert len(history) == 5
     # Day 0 (5 days ago): opening 1000
     # Day 2: +500 = 1500
     # Day 4 (yesterday): -200 = 1300
     # Today: no tx = 1300
-    day0 = next(s for s in history if s["date"] == (datetime.date.today() - datetime.timedelta(days=4)).isoformat())
+    day0 = next(
+        s
+        for s in history
+        if s["date"] == (datetime.date.today() - datetime.timedelta(days=4)).isoformat()
+    )
     assert day0["balance"] == "1000.00"
-    day_with_deposit = next(s for s in history if s["date"] == (datetime.date.today() - datetime.timedelta(days=2)).isoformat())
+    day_with_deposit = next(
+        s
+        for s in history
+        if s["date"] == (datetime.date.today() - datetime.timedelta(days=2)).isoformat()
+    )
     assert day_with_deposit["balance"] == "1500.00"
 
 
 def test_balance_history_nonexistent_account(db_session: Session):
-    history = balance_history(db_session, 999, days=7)
+    uid = _seed_user(db_session)
+    history = balance_history(db_session, 999, uid, days=7)
     assert history == []
 
 
@@ -199,16 +288,29 @@ def test_dashboard_summary_json(client: TestClient):
 
 
 def test_dashboard_summary_with_data(client: TestClient):
-    client.post("/accounts", data={"name": "Bank", "type": "bank"},
-                headers={"HX-Request": "true"})
-    client.post("/transactions", data={
-        "type": "income", "account_id": "1", "amount": "10000",
-        "description": "Salary", "date": datetime.date.today().isoformat(),
-    }, headers={"HX-Request": "true"})
-    client.post("/transactions", data={
-        "type": "expense", "account_id": "1", "amount": "3000",
-        "description": "Rent", "date": datetime.date.today().isoformat(),
-    }, headers={"HX-Request": "true"})
+    client.post("/accounts", data={"name": "Bank", "type": "bank"}, headers={"HX-Request": "true"})
+    client.post(
+        "/transactions",
+        data={
+            "type": "income",
+            "account_id": "1",
+            "amount": "10000",
+            "description": "Salary",
+            "date": datetime.date.today().isoformat(),
+        },
+        headers={"HX-Request": "true"},
+    )
+    client.post(
+        "/transactions",
+        data={
+            "type": "expense",
+            "account_id": "1",
+            "amount": "3000",
+            "description": "Rent",
+            "date": datetime.date.today().isoformat(),
+        },
+        headers={"HX-Request": "true"},
+    )
 
     response = client.get("/api/dashboard/summary")
     assert response.status_code == 200
@@ -259,8 +361,7 @@ def test_dashboard_category_breakdown_invalid_month(client: TestClient):
 
 
 def test_balance_history_json(client: TestClient):
-    client.post("/accounts", data={"name": "Bank", "type": "bank"},
-                headers={"HX-Request": "true"})
+    client.post("/accounts", data={"name": "Bank", "type": "bank"}, headers={"HX-Request": "true"})
     response = client.get("/api/accounts/1/balance-history?range=7")
     assert response.status_code == 200
     data = response.json()

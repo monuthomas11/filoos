@@ -7,7 +7,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
@@ -22,7 +22,6 @@ _LEGACY_ENV_MAP: dict[str, str] = {
     "CURRENCY_SYMBOL": "currency_symbol",
     "FORECAST_HISTORY_DAYS": "forecast_history_days",
     "FORECAST_CACHE_TTL_SECONDS": "forecast_cache_ttl_seconds",
-    "RECURRING_AUTO_MATERIALIZE": "recurring_auto_materialize",
 }
 
 
@@ -50,6 +49,19 @@ class Settings(BaseSettings):
     app_name: str = Field(default="FutureFunds", description="Display name.")
     app_env: Literal["development", "production", "test"] = "development"
     debug: bool = True
+    log_level: str = Field(
+        default="DEBUG",
+        description="Root log level. DEBUG in dev, INFO in prod (override via FF_LOG_LEVEL).",
+    )
+
+    @field_validator("log_level", mode="before")
+    @classmethod
+    def _default_log_level(cls, v: object, info: Any) -> object:
+        """Use INFO when the user hasn't set FF_LOG_LEVEL and we're in production."""
+        if v in (None, ""):
+            env = info.data.get("app_env", "development")
+            return "DEBUG" if env == "development" else "INFO"
+        return v
 
     # Database
     database_url: str = Field(
@@ -65,8 +77,27 @@ class Settings(BaseSettings):
     forecast_history_days: int = 180
     forecast_cache_ttl_seconds: int = 300
 
-    # Recurring
-    recurring_auto_materialize: bool = True
+    # Sessions / Auth
+    session_secret: str | None = Field(
+        default=None, description="Secret key for signing session cookies"
+    )
+    session_max_age_seconds: int = Field(
+        default=60 * 60 * 24 * 14, description="Session max age (seconds)"
+    )
+    session_cookie_secure: bool = Field(
+        default=True, description="Set secure flag on session cookie in production"
+    )
+
+    # Google OAuth
+    google_client_id: str | None = Field(default=None)
+    google_client_secret: str | None = Field(default=None)
+    google_redirect_uri: str | None = Field(default=None)
+
+    # Security
+    allowed_hosts: str = Field(
+        default="localhost,127.0.0.1",
+        description="Comma-separated allowed hosts for TrustedHostMiddleware",
+    )
 
     @model_validator(mode="before")
     @classmethod
