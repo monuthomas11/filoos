@@ -413,7 +413,8 @@ app.add_middleware(TrustedHostMiddleware, allowed_hosts=["yourdomain.com", "loca
         v
   +---------------------+
   |  Neon Postgres      |   <-- serverless, auto-suspends
-  |  (aws-us-east-2)    |       0.5 GB, 7-day PITR
+  |  (aws-ap-southeast- |       0.5 GB, 7-day PITR
+  |   1, Singapore)     |
   +---------------------+
 ```
 
@@ -432,6 +433,24 @@ What Neon handles for us:
 - 7-day PITR (point-in-time recovery to the second)
 - Branching (instant DB copies for schema experiments)
 - Auto-suspend of compute when idle (saves the 191.9 hr/month quota)
+
+**Region choice — Render and Neon MUST co-locate.** The `region:`
+field in `render.yaml` and the Neon project's region are coupled.
+Pick one canonical location for both. Concretely:
+
+- Our **Neon project is in Singapore** (`aws-ap-southeast-1`).
+- Our **Render service is in Singapore** (`region: singapore`).
+- Render → Neon round-trip inside Singapore is sub-millisecond.
+  Cross-region (e.g., Render Oregon ↔ Neon Singapore) would add
+  ~150-300 ms of latency to every SQL round-trip, which on a page
+  that issues 5-10 queries turns into noticeable slowness and a
+  worse cold-start budget on Render's free tier.
+- **Render does NOT let you change a service's region after
+  creation.** If you ever need to move (Neon region migration, or
+  Render capacity issue), you have to delete and recreate the
+  service from the Blueprint — there's no in-place region change.
+  Since the service was never live until that point, this is
+  risk-free; see §4.5 for the recreate flow.
 
 ### 4.2 One-time Neon setup
 
@@ -597,7 +616,7 @@ services:
     name: futurefunds
     runtime: docker
     plan: free
-    region: oregon                # pick whatever is closest to Neon
+    region: singapore           # MUST match Neon region — see §4.1
     branch: main
     dockerfilePath: ./Dockerfile
     dockerContext: .

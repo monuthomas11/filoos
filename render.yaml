@@ -3,7 +3,11 @@ services:
     name: futurefunds
     runtime: docker
     plan: free
-    region: oregon
+    region: singapore           # MUST match the Neon project region (see deployment.md §4.1).
+                                  # Singapore <-> Singapore is <1 ms; cross-region adds
+                                  # 100-300 ms per query. Render does NOT let you change
+                                  # the region of an existing service — recreate from the
+                                  # Blueprint if the region ever needs to move.
     branch: main
     dockerfilePath: ./Dockerfile
     dockerContext: .
