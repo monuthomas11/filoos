@@ -9,15 +9,12 @@ services:
     dockerContext: .
     healthCheckPath: /healthz
     autoDeploy: true
-    # startCommand runs INSIDE the container. The container's WORKDIR is
-    # /app (set by the Dockerfile), and `COPY backend/ ./` put the
-    # backend contents directly into /app/ — so there's no `cd backend`
-    # to do. Migrations run first; if they fail the process exits
-    # non-zero and Render marks the deploy as failed (uvicorn never
-    # starts, so /healthz never returns 200). Once migrations succeed,
-    # uvicorn binds to $PORT (auto-injected by Render) and the health
-    # check goes green.
-    startCommand: "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'"
+    # NOTE: `runtime: docker` means Render runs the Dockerfile's
+    # CMD as the container's main process. Render's blueprint schema
+    # rejects a `startCommand` field when runtime is docker (it would
+    # only apply for `runtime: python` or `runtime: node`). The
+    # `alembic upgrade head && uvicorn ...` chain therefore lives in
+    # the Dockerfile's CMD line (see C11 in deployment.md).
     envVars:
       - key: FF_APP_ENV
         value: production

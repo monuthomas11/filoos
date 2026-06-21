@@ -32,7 +32,7 @@
 - **Backups:** Neon PITR (7-day retention, free tier) + a weekly
   logical `pg_dump` snapshot to local Render disk for paranoia.
 - **Migrations:** run automatically as the first step of the
-  Render `startCommand` on every deploy (`alembic upgrade head &&
+  container's `CMD` on every deploy (`alembic upgrade head &&
   uvicorn …`). A failed migration blocks the deploy — the process
   exits non-zero, uvicorn never starts, and Render never sees
   `/healthz` go green.
@@ -51,7 +51,7 @@
 | Neon.tech Postgres (Free) | Real RDBMS: proper transactions, concurrent writes, JSON columns, real constraints, full-text search if we ever want it. 0.5 GB is ample for a personal-finance workload. PITR + branching are free. |
 | Connection pool tuned for serverless | Neon closes idle connections aggressively, so the engine uses `pool_pre_ping=True` + `pool_recycle=300`; a pooled endpoint (host contains `-pooler`) is used for the web service. |
 | Render-native HTTPS | No Cloudflare tunnel, no `cloudflared`, no origin cert, no `--no-address` VM. Render terminates TLS at its edge and reverse-proxies to the container. |
-| Render `startCommand` runs migrations first | `alembic upgrade head && uvicorn …` runs as the container's main process. A failed migration blocks the deploy — uvicorn never starts, so the health check never goes green. |
+| Migrations chained in the Dockerfile `CMD` | `alembic upgrade head && uvicorn …` is the container's main process. A failed migration blocks the deploy — uvicorn never starts, so the health check never goes green. |
 | Google SSO via `authlib` | Unchanged from Phase 2. |
 | Multi-user data isolation | Unchanged from Phase 2. |
 
@@ -542,29 +542,48 @@ def run_migrations_offline() -> None:
 
 Skip for v1 — keep the existing version.
 
-**C11. Keep `Dockerfile` CMD as a local-`docker`-run fallback — TODO (Phase 3, low priority)**
+**C11. Run migrations in the `Dockerfile` `CMD` — TODO (Phase 3)**
 
 **File:** `Dockerfile`.
 
-This was originally written to make Render work, but the `startCommand`
-in `render.yaml` (see §4.4) overrides the Dockerfile `CMD` entirely
-on Render, so this change is now a **safety net for `docker run` on a
-developer machine**: it lets someone run the image locally and have
-`uvicorn` honor Render's `$PORT` convention.
+This is now the **canonical production start command** (and not a
+fallback, as the previous version of this section said). Render's
+blueprint schema rejects a `startCommand` field when
+`runtime: docker` is set — the Dockerfile's `CMD` is the only
+allowed way to control the container's main process. The migrations
+chain therefore moves here.
 
-The `Dockerfile` already has this fallback in place from the previous
-plan:
+Change the `CMD` line from:
 
 ```dockerfile
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} \
       --proxy-headers --forwarded-allow-ips='*'"]
 ```
 
-If you prefer, you can revert it to the hard-coded `:8000` form — the
-only consequence is that `docker run -e PORT=9000 -p 9000:9000 …`
-won't work without also overriding `CMD`. The original `HEALTHCHECK`
-in the Dockerfile is also unaffected; it uses `127.0.0.1:8000`
-directly.
+to:
+
+```dockerfile
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} \
+      --proxy-headers --forwarded-allow-ips='*'"]
+```
+
+How this interacts with Render:
+
+- Render runs the `CMD` as PID 1 inside the container. The `sh -c`
+  wrapper is required so that `&&` and `${PORT:-8000}` are
+  interpreted by a shell.
+- The container's `WORKDIR` is `/app` (set earlier in the
+  `Dockerfile`), and `COPY backend/ ./` put the backend contents
+  directly into `/app/` — so `alembic upgrade head` finds
+  `alembic.ini` and `uvicorn app.main:app` finds the module
+  without any `cd`.
+- If `alembic` fails, the process exits non-zero, `uvicorn` never
+  starts, and `/healthz` never returns 200. Render marks the
+  deploy as failed.
+- If `alembic` succeeds, `uvicorn` binds to `${PORT:-8000}`. We
+  set `PORT=8000` in `render.yaml` so the existing
+  `HEALTHCHECK` line (which uses `127.0.0.1:8000`) keeps working
+  for local `docker run` on a developer machine.
 
 ### 4.4 `render.yaml` — Infrastructure as Code — ✅ DONE
 
@@ -584,15 +603,13 @@ services:
     dockerContext: .
     healthCheckPath: /healthz
     autoDeploy: true
-    # startCommand runs INSIDE the container. The container's WORKDIR
-    # is /app (set by the Dockerfile), and `COPY backend/ ./` put the
-    # backend contents directly into /app/ — so there's no `cd backend`
-    # to do. Migrations run first; if they fail the process exits
-    # non-zero and Render marks the deploy as failed (uvicorn never
-    # starts, so /healthz never returns 200). Once migrations succeed,
-    # uvicorn binds to $PORT (auto-injected by Render) and the health
-    # check goes green.
-    startCommand: "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'"
+    # NOTE: `runtime: docker` means Render runs the Dockerfile's
+    # CMD as the container's main process. Render's blueprint
+    # schema rejects a `startCommand` field when runtime is docker
+    # (it would only apply for `runtime: python` or
+    # `runtime: node`). The `alembic upgrade head && uvicorn ...`
+    # chain therefore lives in the Dockerfile's CMD line (see C11
+    # in §4.3).
     envVars:
       - key: FF_APP_ENV
         value: production
@@ -626,22 +643,23 @@ services:
 ```
 
 Notes on the `render.yaml`:
-- **Why `startCommand` and not `releaseCommand`?** Render's blueprint
-  schema only allows `releaseCommand` on `type: worker` services.
-  For `type: web`, the schema is `startCommand`. Chaining
-  `alembic upgrade head && uvicorn ...` keeps the same "migrations
-  before traffic" guarantee: the process exits non-zero on a failed
-  migration, uvicorn never starts, and `/healthz` never returns 200,
-  so Render marks the deploy as failed. (Render's `preDeployCommand`
-  is the cleaner primitive for this, but it requires a paid plan.)
+- **No `startCommand` because `runtime: docker`.** Render's blueprint
+  schema enforces this: when you say "I'm bringing my own Docker
+  image", Render respects whatever the image's `CMD` says. Setting
+  `startCommand` in the blueprint would conflict with the image and
+  is rejected with `docker runtime must not have startCommand`. The
+  same YAML would be valid with `runtime: python` (and a different
+  `buildCommand`), but we use Docker so the build pipeline (Tailwind
+  builder stage, slim runtime image) is reproducible.
+- **Where the migrations chain lives, then.** Inside the Dockerfile
+  `CMD` (C11 in §4.3). Same `&&` semantic: `alembic upgrade head`
+  exits non-zero on failure, `uvicorn` never starts, `/healthz` never
+  returns 200, Render marks the deploy as failed. Identical
+  end-to-end safety to a release phase.
 - **No `cd backend` inside the container.** The Dockerfile's
   `WORKDIR /app` plus `COPY backend/ ./` mean `/app/` already *is*
   the backend directory — `alembic.ini`, `alembic/`, and `app/` are
-  all directly under `/app/`. The `startCommand` runs from there.
-- **No override of the Dockerfile `CMD` needed for the startCommand**
-  to work — Render's `startCommand` field replaces the Dockerfile's
-  `CMD` entirely. (The Dockerfile's `CMD` is still useful as a
-  fallback for `docker run` on a developer's machine; see C11.)
+  all directly under `/app/`. The `CMD` runs from there.
 - `FF_DATABASE_URL`, `FF_GOOGLE_CLIENT_ID`, `FF_GOOGLE_CLIENT_SECRET`
   are `sync: false` (set in the Render dashboard as "Secret" env
   vars) because they contain secrets that shouldn't be in the
@@ -658,10 +676,11 @@ Notes on the `render.yaml`:
    - `FF_DATABASE_URL` = the pooled Neon connection string
    - `FF_GOOGLE_CLIENT_ID` = from Google Cloud Console
    - `FF_GOOGLE_CLIENT_SECRET` = from Google Cloud Console
-5. Click *Apply*. The container starts; the `startCommand` runs
-   `alembic upgrade head` against Neon, applying all migrations
-   from scratch on the empty database. If migrations fail, the
-   process exits non-zero and Render marks the deploy as failed.
+5. Click *Apply*. The container starts and the `CMD` from the
+   `Dockerfile` (C11) runs `alembic upgrade head && uvicorn …`.
+   Migrations apply against Neon on the empty database. If
+   migrations fail, the process exits non-zero and Render marks
+   the deploy as failed.
 6. Once migrations succeed, `uvicorn` binds to `$PORT`. Render
    polls `GET /healthz` and the build turns green.
 7. Visit `https://yourapp.onrender.com/login` and sign in.
@@ -895,7 +914,7 @@ natively).
   - [ ] Push `render.yaml` and code to `main`
   - [ ] Render dashboard → **New → Blueprint** → connect repo → create service
   - [ ] Set secret env vars in Render: `FF_DATABASE_URL`, `FF_GOOGLE_CLIENT_ID`, `FF_GOOGLE_CLIENT_SECRET`
-  - [ ] Confirm `startCommand` ran (`alembic upgrade head` succeeded, then `uvicorn` started) and `/healthz` returns 200
+  - [ ] Confirm the container's `CMD` ran end-to-end (`alembic upgrade head` succeeded, then `uvicorn` started) and `/healthz` returns 200
   - [ ] Update Google OAuth **Authorized redirect URIs** to include `https://yourapp.onrender.com/auth/google/callback`
   - [ ] Visit `https://yourapp.onrender.com/login`, sign in, create an account, record a transaction
   - [ ] (Optional) Add custom domain, update `FF_ALLOWED_HOSTS` + OAuth redirect URI
