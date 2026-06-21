@@ -9,15 +9,24 @@ services:
     dockerContext: .
     healthCheckPath: /healthz
     autoDeploy: true
+    # startCommand runs INSIDE the container. The container's WORKDIR is
+    # /app (set by the Dockerfile), and `COPY backend/ ./` put the
+    # backend contents directly into /app/ — so there's no `cd backend`
+    # to do. Migrations run first; if they fail the process exits
+    # non-zero and Render marks the deploy as failed (uvicorn never
+    # starts, so /healthz never returns 200). Once migrations succeed,
+    # uvicorn binds to $PORT (auto-injected by Render) and the health
+    # check goes green.
+    startCommand: "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers --forwarded-allow-ips='*'"
     envVars:
       - key: FF_APP_ENV
         value: production
       - key: FF_DEBUG
         value: "false"
       - key: FF_DATABASE_URL
-        sync: false
+        sync: false               # set in Render UI; secret
       - key: FF_SESSION_SECRET
-        generateValue: true
+        generateValue: true       # Render generates and stores
       - key: FF_SESSION_COOKIE_SECURE
         value: "true"
       - key: FF_ALLOWED_HOSTS
@@ -35,5 +44,7 @@ services:
       - key: FF_LOG_LEVEL
         value: "INFO"
       - key: PORT
-        value: "8000"
-    releaseCommand: "cd backend && alembic upgrade head"
+        value: "8000"             # Render injects $PORT=8000 so the
+                                  # Dockerfile HEALTHCHECK (which uses
+                                  # 127.0.0.1:8000) keeps working in
+                                  # local `docker run` scenarios.
