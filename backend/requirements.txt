@@ -13,6 +13,7 @@ numpy>=1.26.0
 statsmodels>=0.14.0
 python-dateutil>=2.9.0
 python-multipart>=0.0.9
+itsdangerous>=2.1.0           # SessionMiddleware cookie signing (starlette 1.x dropped this from default install)
 psycopg[binary]>=3.1.18
 
 # Dev
