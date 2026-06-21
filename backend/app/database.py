@@ -13,9 +13,10 @@ from app.config import get_settings
 
 _settings = get_settings()
 
+_is_sqlite = _settings.database_url.startswith("sqlite")
 
 # SQLite needs this flag when used with FastAPI's threaded request handlers.
-_connect_args = {"check_same_thread": False} if _settings.database_url.startswith("sqlite") else {}
+_connect_args = {"check_same_thread": False} if _is_sqlite else {}
 
 
 engine = create_engine(
@@ -23,11 +24,13 @@ engine = create_engine(
     connect_args=_connect_args,
     future=True,
     echo=False,
+    pool_pre_ping=not _is_sqlite,
+    pool_recycle=300 if not _is_sqlite else -1,
 )
 
 
 # ── Enforce foreign keys on every SQLite connection ────────────────────────
-if _settings.database_url.startswith("sqlite"):
+if _is_sqlite:
 
     @event.listens_for(engine, "connect")
     def _set_sqlite_pragma(dbapi_connection, connection_record):

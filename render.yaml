@@ -1,0 +1,39 @@
+services:
+  - type: web
+    name: futurefunds
+    runtime: docker
+    plan: free
+    region: oregon
+    branch: main
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: FF_APP_ENV
+        value: production
+      - key: FF_DEBUG
+        value: "false"
+      - key: FF_DATABASE_URL
+        sync: false
+      - key: FF_SESSION_SECRET
+        generateValue: true
+      - key: FF_SESSION_COOKIE_SECURE
+        value: "true"
+      - key: FF_ALLOWED_HOSTS
+        value: "yourapp.onrender.com"
+      - key: FF_GOOGLE_CLIENT_ID
+        sync: false
+      - key: FF_GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: FF_GOOGLE_REDIRECT_URI
+        value: "https://yourapp.onrender.com/auth/google/callback"
+      - key: FF_DEFAULT_CURRENCY
+        value: "INR"
+      - key: FF_CURRENCY_SYMBOL
+        value: "₹"
+      - key: FF_LOG_LEVEL
+        value: "INFO"
+      - key: PORT
+        value: "8000"
+    releaseCommand: "cd backend && alembic upgrade head"
