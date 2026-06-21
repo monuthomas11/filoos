@@ -702,7 +702,46 @@ Notes on the `render.yaml`:
    the deploy as failed.
 6. Once migrations succeed, `uvicorn` binds to `$PORT`. Render
    polls `GET /healthz` and the build turns green.
-7. Visit `https://yourapp.onrender.com/login` and sign in.
+7. Visit `https://futurefunds.onrender.com/login` and sign in.
+
+#### Gotcha 1 — Render's Blueprint reapply doesn't carry over `sync: false` secrets
+
+When you delete a service (e.g., to change region) and re-apply the
+Blueprint, Render re-reads `render.yaml` and creates the new service
+— **but it does not re-prompt for the values of `sync: false` env
+vars**, and the previously-entered secrets do not survive the
+service deletion. Result: the new service starts with the
+`FF_DATABASE_URL`, `FF_GOOGLE_CLIENT_ID`, and `FF_GOOGLE_CLIENT_SECRET`
+keys declared in the blueprint but **no values**, and the app falls
+back to the SQLite default (the same class of bug the
+`_validate_production_database` guard in §4.3 catches).
+
+**Workaround:** after re-applying the Blueprint, manually add the
+three secrets to the new service via **Environment → Add
+Environment Variable** in the dashboard, then **Save Changes**.
+Render auto-redeploys with the values filled in.
+
+#### Gotcha 2 — `FF_ALLOWED_HOSTS` and `FF_GOOGLE_REDIRECT_URI` must match the real hostname
+
+`render.yaml` carries two values that must byte-match the hostname
+the service is served under:
+
+- `FF_ALLOWED_HOSTS` feeds Starlette's `TrustedHostMiddleware`. If
+  the `Host` header from Render's edge doesn't match, every request
+  is rejected with **HTTP 400** — including Render's own health
+  probe at `/healthz`. The deploy then times out after ~10 minutes
+  with `Timed out after waiting for internal health check to return
+  a successful response code`.
+- `FF_GOOGLE_REDIRECT_URI` must exactly match the redirect URI
+  registered in Google Cloud Console, or OAuth login fails with
+  `redirect_uri_mismatch`.
+
+The auto-generated `*.onrender.com` URL is built from the service
+`name:` in `render.yaml`. So a service named `futurefunds` lives at
+`https://futurefunds.onrender.com`, and the two values above must
+contain `futurefunds.onrender.com`. If you rename the service,
+update both. Add custom domains to `FF_ALLOWED_HOSTS` as a
+comma-separated list (e.g. `futurefunds.onrender.com,app.example.com`).
 
 ### 4.6 Google OAuth setup
 
