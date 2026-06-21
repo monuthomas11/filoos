@@ -69,6 +69,39 @@ class Settings(BaseSettings):
         description="SQLAlchemy database URL.",
     )
 
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def _normalize_database_url(cls, v: object) -> object:
+        """Translate a bare ``postgresql://`` scheme to ``postgresql+psycopg://``.
+
+        SQLAlchemy defaults a URL with the ``postgresql`` (or
+        ``postgres``) scheme to the psycopg2 driver, which we do not
+        install — we ship psycopg v3 only (see C7 in deployment.md).
+        Managed-database dashboards (Neon, Supabase, RDS, etc.) hand
+        out connection strings in this bare form, so we rewrite the
+        scheme automatically when no driver is explicitly specified.
+        This applies to both ``FF_DATABASE_URL`` and the legacy
+        ``DATABASE_URL`` env var, since the model validator that maps
+        legacy names runs after field validation in pydantic-settings
+        v2. (If the user already wrote ``postgresql+psycopg://`` or
+        ``postgresql+psycopg2://``, leave the URL untouched.)
+        """
+        if not isinstance(v, str):
+            return v
+        lowered = v.lower()
+        if (
+            "+psycopg" in lowered
+            or "+psycopg2" in lowered
+            or "+pg8000" in lowered
+            or "+asyncpg" in lowered
+        ):
+            return v  # driver already specified — don't touch it
+        if v.startswith("postgresql://"):
+            return "postgresql+psycopg://" + v[len("postgresql://"):]
+        if v.startswith("postgres://"):
+            return "postgresql+psycopg://" + v[len("postgres://"):]
+        return v
+
     # Currency
     default_currency: str = Field(default="INR", description="ISO 4217 code.")
     currency_symbol: str = Field(default="\u20b9", description="Display symbol.")

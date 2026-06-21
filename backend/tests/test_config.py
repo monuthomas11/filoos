@@ -139,3 +139,77 @@ def test_settings_database_url_default():
     settings = Settings()
     assert "sqlite:///" in settings.database_url
     assert "expenses.db" in settings.database_url
+
+
+def test_database_url_translates_bare_postgresql_to_psycopg():
+    """A bare ``postgresql://`` URL must be rewritten to ``postgresql+psycopg://``.
+
+    Managed-database dashboards (Neon, Supabase, RDS) hand out
+    connection strings with the bare ``postgresql://`` scheme, which
+    SQLAlchemy defaults to the psycopg2 driver. We only ship
+    ``psycopg`` v3, so the Settings class auto-translates the scheme
+    so the user can paste the connection string verbatim.
+    """
+    from app.config import Settings
+
+    with patch.dict(os.environ, {}, clear=True):
+        url = Settings(
+            _env_file=None,
+            database_url="postgresql://u:p@ep-foo-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require",
+        ).database_url
+        assert url.startswith("postgresql+psycopg://")
+        assert "sslmode=require" in url
+        assert "ep-foo-pooler" in url
+
+
+def test_database_url_translates_postgres_short_scheme():
+    """The ``postgres://`` short form must also be rewritten."""
+    from app.config import Settings
+
+    with patch.dict(os.environ, {}, clear=True):
+        url = Settings(
+            _env_file=None,
+            database_url="postgres://u:p@host/db",
+        ).database_url
+        assert url == "postgresql+psycopg://u:p@host/db"
+
+
+def test_database_url_preserves_explicit_driver():
+    """An explicit driver prefix must NOT be overwritten."""
+    from app.config import Settings
+
+    with patch.dict(os.environ, {}, clear=True):
+        psycopg_url = Settings(
+            _env_file=None,
+            database_url="postgresql+psycopg://u:p@host/db",
+        ).database_url
+        psycopg2_url = Settings(
+            _env_file=None,
+            database_url="postgresql+psycopg2://u:p@host/db",
+        ).database_url
+        assert psycopg_url == "postgresql+psycopg://u:p@host/db"
+        assert psycopg2_url == "postgresql+psycopg2://u:p@host/db"
+
+
+def test_database_url_leaves_sqlite_alone():
+    """SQLite URLs must pass through untouched."""
+    from app.config import Settings
+
+    with patch.dict(os.environ, {}, clear=True):
+        url = Settings(
+            _env_file=None,
+            database_url="sqlite:///./data/dev.db",
+        ).database_url
+        assert url == "sqlite:///./data/dev.db"
+
+
+def test_database_url_normalizes_when_set_via_env():
+    """Normalization must fire when ``FF_DATABASE_URL`` comes from the env (Render)."""
+    from app.config import Settings
+
+    env_clean = {k: v for k, v in os.environ.items() if not k.startswith("FF_")}
+    env_clean["FF_DATABASE_URL"] = "postgresql://u:p@ep-foo-pooler.us-east-2.aws.neon.tech/neondb?sslmode=require"
+    with patch.dict(os.environ, env_clean, clear=True):
+        settings = Settings(_env_file=None)
+        assert settings.database_url.startswith("postgresql+psycopg://")
+        assert "sslmode=require" in settings.database_url
