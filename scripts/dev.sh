@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# FutureFunds - dev launcher (POSIX)
+# Filoos - dev launcher (POSIX)
 # Usage:  ./scripts/dev.sh
 set -euo pipefail
 

@@ -1,4 +1,4 @@
-# UI Test Review — FutureFunds Phase 8
+# UI Test Review — Filoos Phase 8
 
 **Date:** 2026-06-07
 **Test Scope:** Full application verification against PLAN.md specification

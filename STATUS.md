@@ -1,4 +1,4 @@
-# FutureFunds — Project Status (handoff snapshot)
+# Filoos — Project Status (handoff snapshot)
 
 > **Read this first if you're a new agent/session/model.** It captures *where the project is right now* and the minimum context needed to continue. For full design rationale see [`PLAN.md`](./PLAN.md). For setup & usage see [`README.md`](./README.md).
 
@@ -10,8 +10,8 @@ Last updated: **Phase 9 (Auth — Google SSO)** ✅ complete — multi-user data
 
 | Field | Value |
 |---|---|
-| **Name** | FutureFunds (personal expense tracker) |
-| **Repo root** | `E:\Repos\future-funds\` (this directory) |
+| **Name** | Filoos (personal expense tracker) |
+| **Repo root** | `D:\Source code\future-funds\` (this directory) |
 | **Backend** | `backend/` (FastAPI app) |
 | **Stack** | Python 3.11+ (verified on 3.14.4), FastAPI, SQLAlchemy 2.0, Alembic, Pydantic v2, pydantic-settings, Jinja2, HTMX 1.9, Alpine.js 3, Tailwind CSS (Play CDN for v1), Chart.js 4, pandas + numpy + statsmodels, pytest, ruff |
 | **Database** | SQLite at `data/expenses.db` (gitignored) |
@@ -69,7 +69,7 @@ Last updated: **Phase 9 (Auth — Google SSO)** ✅ complete — multi-user data
 ### Tests (`backend/tests/`)
 
 - `conftest.py` — `db_session` fixture (in-memory SQLite, fresh per test, `Base.metadata.create_all`), `client` fixture (FastAPI `TestClient` with `get_db` overridden), `settings` fixture.
-- `test_smoke.py` — 3 tests: `GET /healthz` returns 200 with correct JSON, `GET /` returns 200 containing "FutureFunds" and "Dashboard", `GET /static/css/app.css` returns 200 with `text/css`. **All 3 pass.**
+- `test_smoke.py` — 3 tests: `GET /healthz` returns 200 with correct JSON, `GET /` returns 200 containing "Filoos" and "Dashboard", `GET /static/css/app.css` returns 200 with `text/css`. **All 3 pass.**
 
 ### Scripts (`scripts/`)
 
@@ -404,7 +404,7 @@ Verified:
 - `GET /` renders dashboard with placeholder for empty DB state + build status.
 - `GET /accounts` renders empty list with "Add your first account" CTA.
 - `GET /accounts/new` renders form with type dropdown, colour picker, currency defaulting to INR.
-- `GET /healthz` returns `{"status":"ok","app":"FutureFunds"}`.
+- `GET /healthz` returns `{"status":"ok","app":"Filoos"}`.
 - Full CRUD round-trip: create → see card → edit name → card updates → delete → card removed (via HTMX).
 
 ### Phase 3 — Transactions

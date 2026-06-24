@@ -1,12 +1,12 @@
-# FutureFunds - Living Plan & Design Document
+# Filoos - Living Plan & Design Document
 
-> This document is the source of truth for FutureFunds architecture, design, and roadmap. It is updated as each phase is implemented.
+> This document is the source of truth for Filoos architecture, design, and roadmap. It is updated as each phase is implemented.
 >
 > **For a quick "where are we right now?" snapshot** (current phase, what was built, what to do next), see [`STATUS.md`](./STATUS.md). **For setup and usage**, see [`README.md`](./README.md).
 
 ## 1. Project Overview
 
-**FutureFunds** is a personal expense tracker built around a lightweight, minimal UI and a small but capable forecasting engine. The product focuses on:
+**Filoos** is a personal expense tracker built around a lightweight, minimal UI and a small but capable forecasting engine. The product focuses on:
 
 - **Multi-account tracking** (cash, bank, credit card, savings, investment).
 - **A clean, fast dashboard** showing balances, recent activity, and budget progress.
@@ -61,7 +61,7 @@ Dark mode is implemented with Tailwind's `dark:` variant and an Alpine.js toggle
 ## 4. Directory Layout
 
 ```
-FutureFunds/
+Filoos/
 ├── backend/
 │   ├── app/
 │   │   ├── __init__.py
@@ -446,7 +446,7 @@ Shipped:
 Verified:
 - `pip install -e ".[dev]"` succeeds on Python 3.14.4.
 - `alembic upgrade head` is a clean no-op (creates `alembic_version` table, no rows).
-- `uvicorn app.main:app` boots; `GET /` returns 200 with "FutureFunds" and "Dashboard" rendered; `GET /healthz` returns `{"status":"ok","app":"FutureFunds"}`; `GET /static/css/app.css` returns 200 with `text/css`.
+- `uvicorn app.main:app` boots; `GET /` returns 200 with "Filoos" and "Dashboard" rendered; `GET /healthz` returns `{"status":"ok","app":"Filoos"}`; `GET /static/css/app.css` returns 200 with `text/css`.
 - `pytest`: 3/3 passing (health, dashboard render, static CSS).
 
 Deviations from the original scaffold: `pyproject.toml` had to drop the `readme = "../README.md"` line because setuptools refuses paths outside the package directory. The README is still referenced from the project root, just not from the package metadata. This is a packaging-time concern only; runtime is unaffected.
@@ -576,7 +576,7 @@ Verified:
 - `pytest -q` → **54 passed** (3 smoke + 20 accounts + 2 helpers + 29 transactions).
 - `GET /` renders dashboard with real recent transactions, computed balances, build status (Phase 1-3 green).
 - `GET /transactions` renders filter form + empty state. `GET /transactions/new` renders form with account dropdown and transfer toggle.
-- `GET /healthz` returns `{"status":"ok","app":"FutureFunds"}`.
+- `GET /healthz` returns `{"status":"ok","app":"Filoos"}`.
 - Full CRUD round-trip: create expense → see row → edit description → row updates → delete → row removed (via HTMX).
 - Create transfer from account A to B → both balances reflect correctly.
 

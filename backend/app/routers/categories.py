@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
+from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.orm import Session
 
 from app.crud.category import (
@@ -84,12 +85,15 @@ async def category_create(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    data = CategoryCreate(
-        name=name,
-        type=type,
-        color=color or None,
-        icon=icon or None,
-    )
+    try:
+        data = CategoryCreate(
+            name=name,
+            type=type,
+            color=color or None,
+            icon=icon or None,
+        )
+    except PydanticValidationError as exc:
+        raise HTTPException(status_code=422, detail=exc.errors()) from exc
     category = create_category(db, data, user_id=user.id)
     if is_htmx(request):
         return Response(status_code=200, headers={"HX-Redirect": "/categories"})

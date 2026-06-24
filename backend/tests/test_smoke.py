@@ -17,7 +17,7 @@ def test_dashboard_renders(client):
     response = client.get("/")
     assert response.status_code == 200
     body = response.text
-    assert "FutureFunds" in body
+    assert "Filoos" in body
     assert "Dashboard" in body
 
 
@@ -52,14 +52,14 @@ def test_trusted_host_middleware_accepts_render_hostname():
     app.add_middleware(
         TrustedHostMiddleware,
         # Mirrors the production value from render.yaml.
-        allowed_hosts=["futurefunds.onrender.com"],
+        allowed_hosts=["filoos.onrender.com"],
     )
 
     @app.get("/healthz")
     def healthz():
         return {"status": "ok"}
 
-    with TestClient(app, base_url="https://futurefunds.onrender.com") as c:
+    with TestClient(app, base_url="https://filoos.onrender.com") as c:
         assert c.get("/healthz").status_code == 200
 
     with TestClient(app, base_url="https://attacker.example.com") as c:

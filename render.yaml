@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: futurefunds
+    name: filoos
     runtime: docker
     plan: free
     region: singapore           # MUST match the Neon project region (see deployment.md §4.1).
@@ -33,12 +33,12 @@ services:
       - key: FF_ALLOWED_HOSTS
         # MUST exactly match the hostname the service is served under.
         # The auto-generated `*.onrender.com` URL is built from the
-        # service name above (`name: futurefunds`), so this becomes
-        # `futurefunds.onrender.com`. Add custom domains as a
-        # comma-separated list, e.g. `futurefunds.onrender.com,app.example.com`.
+        # service name above (`name: filoos`), so this becomes
+        # `filoos.onrender.com`. Add custom domains as a
+        # comma-separated list, e.g. `filoos.onrender.com,app.example.com`.
         # If you change this wrong, Render's `/healthz` probe returns
         # 400 and the deploy times out (see deployment.md §4.5/§4.8).
-        value: "futurefunds.onrender.com"
+        value: "filoos.onrender.com"
       - key: FF_GOOGLE_CLIENT_ID
         sync: false
       - key: FF_GOOGLE_CLIENT_SECRET
@@ -47,7 +47,7 @@ services:
         # MUST exactly match what you register in Google Cloud Console
         # under APIs & Services → Credentials → Authorized redirect URIs.
         # Same hostname as FF_ALLOWED_HOSTS above.
-        value: "https://futurefunds.onrender.com/auth/google/callback"
+        value: "https://filoos.onrender.com/auth/google/callback"
       - key: FF_DEFAULT_CURRENCY
         value: "INR"
       - key: FF_CURRENCY_SYMBOL
