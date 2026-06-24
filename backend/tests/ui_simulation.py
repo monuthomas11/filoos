@@ -17,7 +17,7 @@ def run_simulation():
     print("\n[1/5] Checking Dashboard...")
     r = client.get("/")
     assert r.status_code == 200
-    assert "FutureFunds" in r.text
+    assert "Filoos" in r.text
     print("OK - Dashboard loaded.")
 
     # 2. Account Workflow

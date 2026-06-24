@@ -1,4 +1,4 @@
-// FutureFunds - small client-side helpers.
+// Filoos - small client-side helpers.
 // Most interactivity is handled by HTMX + Alpine.
 
 // Shared design-token palette used by Chart.js charts and dashboard widgets.
@@ -80,4 +80,4 @@ window.FF_COLORS = {
   });
 })();
 
-console.debug("FutureFunds frontend ready.");
+console.debug("Filoos frontend ready.");

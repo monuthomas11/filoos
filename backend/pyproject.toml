@@ -1,10 +1,10 @@
 [project]
-name = "futurefunds"
+name = "filoos"
 version = "0.1.0"
-description = "FutureFunds - a personal expense tracker with a lightweight dashboard and balance predictions."
+description = "Filoos - a personal expense tracker with a lightweight dashboard and balance predictions."
 requires-python = ">=3.11"
 license = { text = "MIT" }
-authors = [{ name = "FutureFunds" }]
+authors = [{ name = "Filoos" }]
 
 dependencies = [
   "fastapi>=0.115.0",

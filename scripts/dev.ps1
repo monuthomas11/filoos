@@ -1,4 +1,4 @@
-# FutureFunds - dev launcher (Windows PowerShell 5.1+)
+# Filoos - dev launcher (Windows PowerShell 5.1+)
 # Usage:  .\scripts\dev.ps1
 # Stops on first error.
 

@@ -252,6 +252,8 @@ async def transaction_create(
     except ValueError:
         raise HTTPException(status_code=422, detail="Invalid transaction type") from None
     parsed_date = parse_date_or_422(date)
+    if not description or not description.strip():
+        raise HTTPException(status_code=422, detail="Description must not be empty")
     if amount <= 0:
         raise HTTPException(status_code=422, detail="Amount must be positive")
 

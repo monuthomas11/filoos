@@ -1,7 +1,7 @@
 {
-  "name": "futurefunds-frontend",
+  "name": "filoos-frontend",
   "private": true,
-  "description": "FutureFunds frontend build (Tailwind CSS).",
+  "description": "Filoos frontend build (Tailwind CSS).",
   "scripts": {
     "build:css": "tailwindcss --config tailwind.config.js --input app/static/css/app.css --output app/static/css/app.compiled.css --minify",
     "watch:css": "tailwindcss --config tailwind.config.js --input app/static/css/app.css --output app/static/css/app.compiled.css --watch"

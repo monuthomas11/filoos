@@ -46,7 +46,7 @@ class Settings(BaseSettings):
     )
 
     # Application
-    app_name: str = Field(default="FutureFunds", description="Display name.")
+    app_name: str = Field(default="Filoos", description="Display name.")
     app_env: Literal["development", "production", "test"] = "development"
     debug: bool = True
     log_level: str = Field(

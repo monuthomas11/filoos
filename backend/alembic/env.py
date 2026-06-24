@@ -1,6 +1,6 @@
 """Alembic environment.
 
-Loads the SQLAlchemy URL and metadata from the FutureFunds app package so
+Loads the SQLAlchemy URL and metadata from the Filoos app package so
 `alembic revision --autogenerate` picks up model changes automatically.
 """
 

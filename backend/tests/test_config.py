@@ -14,7 +14,7 @@ def test_settings_load_with_defaults():
     env_clean = {k: v for k, v in os.environ.items() if not k.startswith("FF_")}
     with patch.dict(os.environ, env_clean, clear=True):
         settings = Settings()
-        assert settings.app_name == "FutureFunds"
+        assert settings.app_name == "Filoos"
         assert settings.app_env == "development"
         assert settings.debug is True
         assert settings.default_currency == "INR"

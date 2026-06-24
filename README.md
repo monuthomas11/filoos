@@ -1,4 +1,4 @@
-# FutureFunds
+# Filoos
 
 A personal expense tracker with a lightweight, beautiful dashboard and balance predictions.
 
@@ -112,7 +112,7 @@ pytest
 | `GET /categories` | Category list (CRUD) |
 | `GET /budgets` | Budget list (CRUD) with progress bars |
 | `GET /recurring` | Recurring rule list (CRUD) with next-occurrence preview |
-| `GET /healthz` | Liveness probe (`{"status":"ok","app":"FutureFunds"}`) |
+| `GET /healthz` | Liveness probe (`{"status":"ok","app":"Filoos"}`) |
 | `GET /docs` | Auto-generated OpenAPI docs for the JSON API |
 | `GET /static/*` | CSS / JS / assets |
 | `GET /api/dashboard/summary` | Monthly income/expense/savings-rate KPIs |
@@ -127,7 +127,7 @@ pytest
 ## Project layout
 
 ```
-FutureFunds/
+Filoos/
 ├── backend/
 │   ├── app/             # FastAPI application package
 │   │   ├── main.py      # App factory, routes, lifespan
@@ -168,13 +168,13 @@ FutureFunds/
 
 ## Deployment
 
-FutureFunds ships as a single FastAPI process backed by a SQLite file. The included `Dockerfile` packages the app for container-based hosting.
+Filoos ships as a single FastAPI process backed by a SQLite file. The included `Dockerfile` packages the app for container-based hosting.
 
 ### Build and run
 
 ```bash
-docker build -t futurefunds .
-docker run -p 8000:8000 -v "$(pwd)/data:/app/data" futurefunds
+docker build -t filoos .
+docker run -p 8000:8000 -v "$(pwd)/data:/app/data" filoos
 ```
 
 The `-v` mount persists the SQLite database outside the container. Without it, all data is lost on restart.

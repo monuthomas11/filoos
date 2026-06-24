@@ -6,6 +6,7 @@ from decimal import Decimal
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from pydantic import ValidationError as PydanticValidationError
 from sqlalchemy.orm import Session
 
 from app.crud.account import (
@@ -86,15 +87,18 @@ async def account_create(
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
-    data = AccountCreate(
-        name=name,
-        type=type,
-        currency=currency,
-        opening_balance=opening_balance,
-        color=color or None,
-        icon=icon or None,
-        is_active=is_active,
-    )
+    try:
+        data = AccountCreate(
+            name=name,
+            type=type,
+            currency=currency,
+            opening_balance=opening_balance,
+            color=color or None,
+            icon=icon or None,
+            is_active=is_active,
+        )
+    except PydanticValidationError as exc:
+        raise HTTPException(status_code=422, detail=exc.errors()) from exc
     account = create_account(db, data, user_id=user.id)
     if is_htmx(request):
         return Response(status_code=200, headers={"HX-Redirect": "/accounts"})

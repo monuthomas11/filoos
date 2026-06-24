@@ -1,4 +1,4 @@
-"""Seed the FutureFunds database with realistic INR demo data.
+"""Seed the Filoos database with realistic INR demo data.
 
 Usage:
     python scripts/seed.py

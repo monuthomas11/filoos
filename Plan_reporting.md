@@ -1,4 +1,4 @@
-# FutureFunds — Reporting Module Implementation Plan
+# Filoos — Reporting Module Implementation Plan
 
 > **Purpose**: Full reporting module with Income/Expense, Balance Trend, and Cash Flow reports.
 > **Status**: Planning → Ready for Implementation
@@ -8,7 +8,7 @@
 
 ## 1. Executive Summary
 
-This plan adds a dedicated **Reporting module** to FutureFunds, complementing the existing dashboard charts with full, exportable reports. The module provides:
+This plan adds a dedicated **Reporting module** to Filoos, complementing the existing dashboard charts with full, exportable reports. The module provides:
 
 - **Income/Expense reports** — period comparison, category drill-down, waterfall view
 - **Balance Trend reports** — multi-account balance history, combined net worth

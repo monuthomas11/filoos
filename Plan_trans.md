@@ -2,7 +2,7 @@
 
 > Standalone plan document for the "Quick-add transaction" feature. Contains full
 > context for another agent to implement without needing to read PLAN.md.
-> Project lives at `E:\Repos\future-funds`. Backend is FastAPI + SQLAlchemy + Jinja2.
+> Project lives at `D:\Source code\future-funds`. Backend is FastAPI + SQLAlchemy + Jinja2.
 > Frontend stack: HTMX 1.9, Alpine.js 3, Tailwind (Play CDN), Chart.js 4.
 
 ---

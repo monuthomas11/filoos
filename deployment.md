@@ -1,6 +1,6 @@
-# FutureFunds v1 — Deployment Plan
+# Filoos v1 — Deployment Plan
 
-> **Audience:** the maintainer, deploying FutureFunds to a public URL on
+> **Audience:** the maintainer, deploying Filoos to a public URL on
 > Render (web host) backed by Neon.tech Postgres (managed database).
 > Companion to `README.md`, `PLAN.md`, and `STATUS.md`.
 >
@@ -178,7 +178,7 @@ and `FF_DEBUG=false` flipped. **SSO / session keys are now included**
 
 Current state (will be updated in Phase 3 to point at Postgres — see §4.6):
 ```ini
-FF_APP_NAME=FutureFunds
+FF_APP_NAME=Filoos
 FF_APP_ENV=production
 FF_DEBUG=false
 FF_DATABASE_URL=sqlite:////app/data/expenses.db
@@ -278,7 +278,7 @@ async def readyz(response: Response) -> dict[str, str]:
     return {"status": "ok" if healthy else "degraded", **checks}
 ```
 
-Verified live: `/healthz` → 200 `{"status":"ok","app":"FutureFunds"}`,
+Verified live: `/healthz` → 200 `{"status":"ok","app":"Filoos"}`,
 `/readyz` → 200 `{"status":"ok","database":"ok","settings":"ok"}`.
 
 **Also fixed during C5/C6 verification:** `tests/test_config.py::test_settings_legacy_env_vars_backward_compatibility` was broken — it patched `os.environ` but the project's `.env` file was still loaded by pydantic-settings, so the FF_ values from `.env` always won. Fixed by passing `_env_file=None` to isolate the test. **Pre-existing bug, not caused by C5.**
@@ -613,7 +613,7 @@ connected repo.
 ```yaml
 services:
   - type: web
-    name: futurefunds
+    name: filoos
     runtime: docker
     plan: free
     region: singapore           # MUST match Neon region — see §4.1
@@ -688,7 +688,7 @@ Notes on the `render.yaml`:
 
 1. Push the changes from §4.3 and §4.4 to `main`.
 2. In Render dashboard → **New → Blueprint** → point at the repo.
-3. Render parses `render.yaml` and creates the `futurefunds` web
+3. Render parses `render.yaml` and creates the `filoos` web
    service. The first build takes a few minutes (compiles Tailwind
    + installs Python deps).
 4. Set the secret env vars in the dashboard:
@@ -702,7 +702,7 @@ Notes on the `render.yaml`:
    the deploy as failed.
 6. Once migrations succeed, `uvicorn` binds to `$PORT`. Render
    polls `GET /healthz` and the build turns green.
-7. Visit `https://futurefunds.onrender.com/login` and sign in.
+7. Visit `https://filoos.onrender.com/login` and sign in.
 
 #### Gotcha 1 — Render's Blueprint reapply doesn't carry over `sync: false` secrets
 
@@ -737,11 +737,11 @@ the service is served under:
   `redirect_uri_mismatch`.
 
 The auto-generated `*.onrender.com` URL is built from the service
-`name:` in `render.yaml`. So a service named `futurefunds` lives at
-`https://futurefunds.onrender.com`, and the two values above must
-contain `futurefunds.onrender.com`. If you rename the service,
+`name:` in `render.yaml`. So a service named `filoos` lives at
+`https://filoos.onrender.com`, and the two values above must
+contain `filoos.onrender.com`. If you rename the service,
 update both. Add custom domains to `FF_ALLOWED_HOSTS` as a
-comma-separated list (e.g. `futurefunds.onrender.com,app.example.com`).
+comma-separated list (e.g. `filoos.onrender.com,app.example.com`).
 
 ### 4.6 Google OAuth setup
 
@@ -844,18 +844,18 @@ jobs:
         run: |
           ts=$(date -u +%Y%m%dT%H%M%SZ)
           pg_dump "$DATABASE_URL" --no-owner --no-acl \
-            --file="futurefunds-${ts}.sql"
+            --file="filoos-${ts}.sql"
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: futurefunds-pg-dump
-          path: futurefunds-*.sql
+          name: filoos-pg-dump
+          path: filoos-*.sql
         # Artifacts are retained 90 days. Good enough for v1.
 ```
 
 Restore from a dump:
 ```bash
-psql "$DATABASE_URL" < futurefunds-20260621T030000Z.sql
+psql "$DATABASE_URL" < filoos-20260621T030000Z.sql
 ```
 
 ### 5.3 Schema-experiment workflow (free)

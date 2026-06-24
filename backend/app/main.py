@@ -31,7 +31,7 @@ logger = logging.getLogger("app")
 BASE_DIR = Path(__file__).resolve().parent
 settings = get_settings()
 logger.info(
-    "starting FutureFunds",
+    "starting Filoos",
     extra={"version": "0.1.0", "env": settings.app_env, "debug": settings.debug},
 )
 
@@ -41,7 +41,7 @@ async def lifespan(_: FastAPI):
     """Application lifespan: ensure SQLite dir exists."""
     ensure_data_dir()
     yield
-    logger.info("FutureFunds shutting down")
+    logger.info("Filoos shutting down")
 
 
 app = FastAPI(

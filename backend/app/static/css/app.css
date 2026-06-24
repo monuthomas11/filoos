@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* FutureFunds - small overrides + transitions.
+/* Filoos - small overrides + transitions.
    Tailwind handles the bulk of styling; this file is for things Tailwind
    utility classes can't express as cleanly. */
 
