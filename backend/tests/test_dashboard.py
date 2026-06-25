@@ -19,6 +19,7 @@ from app.schemas.account import AccountCreate
 from app.schemas.category import CategoryCreate
 from app.services.analytics import (
     balance_history,
+    balance_trend,
     category_breakdown,
     daily_spending,
     monthly_summary,
@@ -192,7 +193,7 @@ def test_category_breakdown_with_categories(db_session: Session):
     labels = {b["label"] for b in breakdown}
     assert "Food" in labels
     assert "Rent" in labels
-    assert "Salary" in labels
+    assert "Salary" not in labels
     assert "Income" not in labels
     assert "Expense" not in labels
 
@@ -383,4 +384,113 @@ def test_dashboard_page_has_chart_containers(client: TestClient):
     assert 'id="category-chart"' in response.text
     assert 'id="kpi-income"' in response.text
     assert 'id="kpi-expense"' in response.text
-    assert 'id="kpi-savings-rate"' in response.text
+    assert 'id="balance-trend-chart"' in response.text
+
+
+def test_balance_trend_empty(db_session: Session):
+    uid = _seed_user(db_session)
+    result = balance_trend(db_session, uid)
+    assert result["current_balance"] == "0.00"
+    assert result["previous_balance"] == "0.00"
+    assert result["change_pct"] == 0.0
+    assert result["series"] == []
+
+
+def test_balance_trend_with_transactions(db_session: Session):
+    uid = _seed_user(db_session)
+    _seed_account(db_session, uid, "Bank", AccountType.BANK, "50000")
+
+    today = datetime.date.today()
+    _seed_tx(db_session, uid, 1, "-1000", TransactionType.EXPENSE, "Rent", days_ago=2)
+    _seed_tx(db_session, uid, 1, "3000", TransactionType.INCOME, "Salary", days_ago=5)
+
+    result = balance_trend(db_session, uid)
+    assert float(result["current_balance"]) == 52000
+    assert isinstance(result["series"], list)
+    assert len(result["series"]) > 0
+    assert "date" in result["series"][0]
+    assert "balance" in result["series"][0]
+
+
+def test_balance_trend_json(client: TestClient):
+    response = client.get("/api/dashboard/balance-trend")
+    assert response.status_code == 200
+    data = response.json()
+    assert "current_balance" in data
+    assert "previous_balance" in data
+    assert "change_pct" in data
+    assert "series" in data
+
+
+def test_balance_trend_series_format(client: TestClient):
+    """Each series entry must have a valid ISO date and numeric balance for tooltip consistency."""
+    response = client.get("/api/dashboard/balance-trend")
+    assert response.status_code == 200
+    data = response.json()
+    for entry in data["series"]:
+        assert "date" in entry
+        assert "balance" in entry
+        # date must be parseable YYYY-MM-DD
+        datetime.date.fromisoformat(entry["date"])
+        # balance must be a valid decimal string
+        float(entry["balance"])
+
+
+def test_balance_projection_series_format(client: TestClient):
+    """Projection entries must have valid dates and numeric balances for tooltip consistency."""
+    response = client.get("/api/predictions/balance?horizon=30")
+    assert response.status_code == 200
+    data = response.json()
+    assert "projections" in data
+    for entry in data["projections"]:
+        assert "date" in entry
+        assert "balance" in entry
+        datetime.date.fromisoformat(entry["date"])
+        float(entry["balance"])
+
+
+def test_dashboard_chart_tooltip_config(client: TestClient):
+    """Dashboard HTML must contain tooltip config that handles null values and index mode."""
+    response = client.get("/")
+    assert response.status_code == 200
+    html = response.text
+    # Tooltip filter to skip null values
+    assert "filter: function (c)" in html
+    assert "c.parsed.y !== null" in html
+    # Interaction mode index + no intersect for consistent hover
+    assert "mode: 'index'" in html
+    assert "intersect: false" in html
+
+
+def test_profile_dropdown_present(client: TestClient):
+    """base.html must contain a profile icon button with dropdown menu and sign out."""
+    from pathlib import Path
+    html = Path("app/templates/base.html").read_text(encoding="utf-8")
+    # Profile icon button with aria-label
+    assert 'aria-label="User menu"' in html
+    # Alpine.js dropdown toggle
+    assert "profileOpen" in html
+    # Dropdown menu container
+    assert 'role="menu"' in html
+    # User info inside dropdown
+    assert "cu.name" in html
+    assert "cu.email" in html
+    # Sign out form inside dropdown
+    assert 'action="/auth/logout"' in html
+    assert 'role="menuitem"' in html
+
+
+def test_profile_dropdown_not_on_login(client: TestClient):
+    """Login page must not show the profile icon or dropdown."""
+    from app.deps import get_current_user as _dep
+    from app.main import app as _app
+
+    _app.dependency_overrides.pop(_dep, None)
+    try:
+        with TestClient(_app, raise_server_exceptions=False) as raw:
+            resp = raw.get("/login")
+            html = resp.text
+            assert 'aria-label="User menu"' not in html
+            assert 'role="menu"' not in html
+    finally:
+        _app.dependency_overrides[_dep] = lambda: None

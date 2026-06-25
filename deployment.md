@@ -229,7 +229,7 @@ FF_ALLOWED_HOSTS=localhost,127.0.0.1
    - `DevFormatter` for development — plain text with `extra={}` fields appended as `key=value` pairs.
 2. `FF_LOG_LEVEL` setting (default `DEBUG` in dev, `INFO` in prod/test).
 3. Uvicorn loggers are reconfigured to propagate through our root handler, so access logs share the same format.
-4. `sqlalchemy.engine`, `urllib3.connectionpool`, `httpx` pinned to `WARNING` to keep noise down.
+4. `sqlalchemy.engine`, `urllib3.connectionpool`, `httpx2` pinned to `WARNING` to keep noise down.
 5. Request-logging middleware in `main.py` logs one line per request with `request_id` (12-char hex, also returned in `x-request-id` response header), `method`, `path`, `status`, `elapsed_ms`. Unhandled exceptions are logged via `logger.exception` and re-raised.
 6. Lifespan logs at startup: configuration, version, env, recurring-materialization summary.
 7. `services/recurring.py` logs per-rule results (INFO if materialized, DEBUG if up-to-date) and catches+logs per-rule failures so one bad rule doesn't abort the loop.
