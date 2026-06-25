@@ -460,3 +460,37 @@ def test_dashboard_chart_tooltip_config(client: TestClient):
     # Interaction mode index + no intersect for consistent hover
     assert "mode: 'index'" in html
     assert "intersect: false" in html
+
+
+def test_profile_dropdown_present(client: TestClient):
+    """base.html must contain a profile icon button with dropdown menu and sign out."""
+    from pathlib import Path
+    html = Path("app/templates/base.html").read_text(encoding="utf-8")
+    # Profile icon button with aria-label
+    assert 'aria-label="User menu"' in html
+    # Alpine.js dropdown toggle
+    assert "profileOpen" in html
+    # Dropdown menu container
+    assert 'role="menu"' in html
+    # User info inside dropdown
+    assert "cu.name" in html
+    assert "cu.email" in html
+    # Sign out form inside dropdown
+    assert 'action="/auth/logout"' in html
+    assert 'role="menuitem"' in html
+
+
+def test_profile_dropdown_not_on_login(client: TestClient):
+    """Login page must not show the profile icon or dropdown."""
+    from app.deps import get_current_user as _dep
+    from app.main import app as _app
+
+    _app.dependency_overrides.pop(_dep, None)
+    try:
+        with TestClient(_app, raise_server_exceptions=False) as raw:
+            resp = raw.get("/login")
+            html = resp.text
+            assert 'aria-label="User menu"' not in html
+            assert 'role="menu"' not in html
+    finally:
+        _app.dependency_overrides[_dep] = lambda: None

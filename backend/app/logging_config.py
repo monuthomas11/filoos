@@ -135,7 +135,7 @@ def configure_logging() -> None:
     # Quiet noisy libraries unless the operator explicitly turns them on.
     logging.getLogger("sqlalchemy.engine").setLevel("WARNING")
     logging.getLogger("urllib3.connectionpool").setLevel("WARNING")
-    logging.getLogger("httpx").setLevel("WARNING")
+    logging.getLogger("httpx2").setLevel("WARNING")
 
     logging.getLogger("app").info(
         "logging configured",

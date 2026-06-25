@@ -31,7 +31,7 @@ Non-goals (v1): multi-currency, bank integrations, receipt OCR, mobile apps.
 | Styling | **Tailwind CSS** (Play CDN for v1) | Utility-first, beautiful defaults, zero build. Compiled output planned for production. |
 | Charts | **Chart.js** | Small (~70KB), good looking, simple API. |
 | Forecasting | **pandas + numpy + statsmodels** | Lightweight stats. EMA + seasonality + linear trend. |
-| Testing | **pytest** + **httpx** | Standard. |
+| Testing | **pytest** + **httpx2** | Standard. |
 | Lint/format | **ruff** | Fast, replaces flake8/black/isort. |
 | Package mgmt | pyproject.toml + pip / uv | Modern. |
 
