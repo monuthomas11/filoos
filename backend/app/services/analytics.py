@@ -8,6 +8,7 @@ from decimal import Decimal
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.models.account import Account
 from app.models.budget import Budget, BudgetPeriod
 from app.models.category import Category, CategoryType
 from app.models.transaction import Transaction, TransactionType
@@ -366,3 +367,125 @@ def balance_history(
         running += date_map.get(d, Decimal("0.00"))
         series.append({"date": d.isoformat(), "balance": str(running)})
     return series
+
+
+def balance_trend(
+    db: Session,
+    user_id: int,
+    today: datetime.date | None = None,
+) -> dict:
+    """Return current month balance trend across all active accounts.
+
+    Returns current total balance, previous month ending balance,
+    percentage change, and a daily balance series for the current month.
+    """
+    if today is None:
+        today = datetime.date.today()
+
+    # Current month range
+    month_start = today.replace(day=1)
+    # Previous month range
+    if month_start.month == 1:
+        prev_month_end = month_start - datetime.timedelta(days=1)
+    else:
+        prev_month_end = month_start - datetime.timedelta(days=1)
+    prev_month_start = prev_month_end.replace(day=1)
+
+    # Get all active accounts
+    accounts = (
+        db.query(Account)
+        .filter(Account.user_id == user_id, Account.is_active.is_(True))
+        .all()
+    )
+    if not accounts:
+        return {
+            "current_balance": "0.00",
+            "previous_balance": "0.00",
+            "change_pct": 0.0,
+            "series": [],
+        }
+
+    account_ids = [a.id for a in accounts]
+
+    # Seed: opening_balance + all transactions before current month
+    opening_total = sum(a.opening_balance for a in accounts)
+    prior_sum: Decimal = db.query(
+        func.coalesce(func.sum(Transaction.amount), 0)
+    ).filter(
+        Transaction.account_id.in_(account_ids),
+        Transaction.date < month_start,
+    ).scalar() or Decimal("0")
+
+    # Seed at start of previous month (for previous balance calculation)
+    pre_prev_sum: Decimal = db.query(
+        func.coalesce(func.sum(Transaction.amount), 0)
+    ).filter(
+        Transaction.account_id.in_(account_ids),
+        Transaction.date < prev_month_start,
+    ).scalar() or Decimal("0")
+
+    # Daily net transactions for current month
+    rows = (
+        db.query(
+            Transaction.date,
+            func.coalesce(func.sum(Transaction.amount), 0),
+        )
+        .filter(
+            Transaction.account_id.in_(account_ids),
+            Transaction.date >= month_start,
+            Transaction.date <= today,
+        )
+        .group_by(Transaction.date)
+        .order_by(Transaction.date)
+        .all()
+    )
+    date_map = {r[0]: r[1] for r in rows}
+
+    # Daily net transactions for previous month (for ending balance)
+    prev_rows = (
+        db.query(
+            Transaction.date,
+            func.coalesce(func.sum(Transaction.amount), 0),
+        )
+        .filter(
+            Transaction.account_id.in_(account_ids),
+            Transaction.date >= prev_month_start,
+            Transaction.date <= prev_month_end,
+        )
+        .group_by(Transaction.date)
+        .order_by(Transaction.date)
+        .all()
+    )
+    prev_date_map = {r[0]: r[1] for r in prev_rows}
+
+    # Current month daily series
+    num_days = (today - month_start).days + 1
+    running = opening_total + prior_sum
+    series: list[dict] = []
+    for i in range(num_days):
+        d = month_start + datetime.timedelta(days=i)
+        running += date_map.get(d, Decimal("0"))
+        series.append({"date": d.isoformat(), "balance": str(running)})
+
+    current_balance = opening_total + prior_sum + sum(date_map.values())
+
+    # Previous month ending balance
+    prev_running = opening_total + pre_prev_sum
+    prev_num_days = (prev_month_end - prev_month_start).days + 1
+    for i in range(prev_num_days):
+        d = prev_month_start + datetime.timedelta(days=i)
+        prev_running += prev_date_map.get(d, Decimal("0"))
+    previous_balance = prev_running
+
+    # Percentage change
+    if previous_balance != 0:
+        change_pct = float((current_balance - previous_balance) / abs(previous_balance) * 100)
+    else:
+        change_pct = 0.0
+
+    return {
+        "current_balance": str(current_balance),
+        "previous_balance": str(previous_balance),
+        "change_pct": round(change_pct, 1),
+        "series": series,
+    }

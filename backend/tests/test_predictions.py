@@ -364,7 +364,7 @@ def test_dashboard_page_has_prediction_elements(client: TestClient):
     """The dashboard page should have the new prediction UI elements."""
     response = client.get("/")
     assert response.status_code == 200
-    assert 'id="balance-chart"' in response.text
+    assert 'id="balance-trend-chart"' in response.text
     assert 'id="runway-warning"' in response.text
     assert 'id="runway-text"' in response.text
-    assert "Balance projection" in response.text
+    assert "Balance Trend" in response.text

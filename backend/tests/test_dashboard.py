@@ -19,6 +19,7 @@ from app.schemas.account import AccountCreate
 from app.schemas.category import CategoryCreate
 from app.services.analytics import (
     balance_history,
+    balance_trend,
     category_breakdown,
     daily_spending,
     monthly_summary,
@@ -383,4 +384,79 @@ def test_dashboard_page_has_chart_containers(client: TestClient):
     assert 'id="category-chart"' in response.text
     assert 'id="kpi-income"' in response.text
     assert 'id="kpi-expense"' in response.text
-    assert 'id="kpi-savings-rate"' in response.text
+    assert 'id="balance-trend-chart"' in response.text
+
+
+def test_balance_trend_empty(db_session: Session):
+    uid = _seed_user(db_session)
+    result = balance_trend(db_session, uid)
+    assert result["current_balance"] == "0.00"
+    assert result["previous_balance"] == "0.00"
+    assert result["change_pct"] == 0.0
+    assert result["series"] == []
+
+
+def test_balance_trend_with_transactions(db_session: Session):
+    uid = _seed_user(db_session)
+    _seed_account(db_session, uid, "Bank", AccountType.BANK, "50000")
+
+    today = datetime.date.today()
+    _seed_tx(db_session, uid, 1, "-1000", TransactionType.EXPENSE, "Rent", days_ago=2)
+    _seed_tx(db_session, uid, 1, "3000", TransactionType.INCOME, "Salary", days_ago=5)
+
+    result = balance_trend(db_session, uid)
+    assert float(result["current_balance"]) == 52000
+    assert isinstance(result["series"], list)
+    assert len(result["series"]) > 0
+    assert "date" in result["series"][0]
+    assert "balance" in result["series"][0]
+
+
+def test_balance_trend_json(client: TestClient):
+    response = client.get("/api/dashboard/balance-trend")
+    assert response.status_code == 200
+    data = response.json()
+    assert "current_balance" in data
+    assert "previous_balance" in data
+    assert "change_pct" in data
+    assert "series" in data
+
+
+def test_balance_trend_series_format(client: TestClient):
+    """Each series entry must have a valid ISO date and numeric balance for tooltip consistency."""
+    response = client.get("/api/dashboard/balance-trend")
+    assert response.status_code == 200
+    data = response.json()
+    for entry in data["series"]:
+        assert "date" in entry
+        assert "balance" in entry
+        # date must be parseable YYYY-MM-DD
+        datetime.date.fromisoformat(entry["date"])
+        # balance must be a valid decimal string
+        float(entry["balance"])
+
+
+def test_balance_projection_series_format(client: TestClient):
+    """Projection entries must have valid dates and numeric balances for tooltip consistency."""
+    response = client.get("/api/predictions/balance?horizon=30")
+    assert response.status_code == 200
+    data = response.json()
+    assert "projections" in data
+    for entry in data["projections"]:
+        assert "date" in entry
+        assert "balance" in entry
+        datetime.date.fromisoformat(entry["date"])
+        float(entry["balance"])
+
+
+def test_dashboard_chart_tooltip_config(client: TestClient):
+    """Dashboard HTML must contain tooltip config that handles null values and index mode."""
+    response = client.get("/")
+    assert response.status_code == 200
+    html = response.text
+    # Tooltip filter to skip null values
+    assert "filter: function (c)" in html
+    assert "c.parsed.y !== null" in html
+    # Interaction mode index + no intersect for consistent hover
+    assert "mode: 'index'" in html
+    assert "intersect: false" in html

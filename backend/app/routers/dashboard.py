@@ -10,6 +10,7 @@ from app.deps import get_current_user, get_db
 from app.models.user import User
 from app.services.analytics import (
     balance_history,
+    balance_trend,
     budget_progress,
     category_breakdown,
     daily_spending,
@@ -98,6 +99,15 @@ async def dashboard_budgets(
 ):
     """Budget progress for a period (defaults to current month)."""
     return {"data": budget_progress(db, user.id, year, month, start_date, end_date)}
+
+
+@router.get("/api/dashboard/balance-trend")
+async def dashboard_balance_trend(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    """Current month balance trend across all active accounts."""
+    return balance_trend(db, user.id)
 
 
 @router.get("/api/accounts/{account_id}/balance-history")

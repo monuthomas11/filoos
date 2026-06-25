@@ -35,13 +35,6 @@
         {{ currency_symbol }}{{ total_balance|string }}
       </p>
       <p class="mt-1 text-xs text-neutral-400">{{ accounts|length }} account(s)</p>
-      <!-- Runway warning → shown/hidden by JS -->
-      <div id="runway-warning" class="mt-2 hidden" role="alert">
-        <span class="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/></svg>
-          <span id="runway-text"></span>
-        </span>
-      </div>
     </div>
     <div class="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
       <p id="kpi-income-label" class="text-xs uppercase tracking-wide text-neutral-500">This month income</p>
@@ -93,6 +86,38 @@
   </div>
   {% endif %}
 
+  <!-- Balance trend & projection -->
+  <div class="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
+    <div class="flex items-center justify-between">
+      <h2 class="text-sm font-semibold">Balance Trend</h2>
+      <select id="horizon-select" class="rounded-lg border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
+        <option value="30">30 days</option>
+        <option value="60" selected>60 days</option>
+        <option value="90">90 days</option>
+      </select>
+    </div>
+    <div class="mt-2 flex items-baseline justify-between">
+      <div>
+        <p class="text-xs text-neutral-500">This month</p>
+        <p id="balance-trend-amount" class="mt-1 text-2xl font-semibold text-neutral-900 dark:text-neutral-100">—</p>
+      </div>
+      <div class="text-right">
+        <p class="text-xs text-neutral-500">VS Previous Period</p>
+        <span id="balance-trend-badge" class="mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">—</span>
+      </div>
+    </div>
+    <!-- Runway warning -->
+    <div id="runway-warning" class="mt-2 hidden" role="alert">
+      <span class="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/></svg>
+        <span id="runway-text"></span>
+      </span>
+    </div>
+    <div class="mt-4" style="position: relative; height: 260px;">
+      <canvas id="balance-trend-chart" role="img" aria-label="Balance trend and projection chart"></canvas>
+    </div>
+  </div>
+
   <!-- Chart row -->
   <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
     <div class="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900 lg:col-span-2">
@@ -109,21 +134,6 @@
       <div class="mt-4" style="position: relative; height: 260px;">
         <canvas id="category-chart" role="img" aria-label="Category breakdown doughnut chart"></canvas>
       </div>
-    </div>
-  </div>
-
-  <!-- Balance projection chart -->
-  <div class="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
-    <div class="flex items-center justify-between">
-      <h2 class="text-sm font-semibold">Balance projection</h2>
-      <select id="horizon-select" class="rounded-lg border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
-        <option value="30">30 days</option>
-        <option value="60" selected>60 days</option>
-        <option value="90">90 days</option>
-      </select>
-    </div>
-    <div class="mt-4" style="position: relative; height: 260px;">
-      <canvas id="balance-chart" role="img" aria-label="Balance projection line chart"></canvas>
     </div>
   </div>
 
@@ -257,7 +267,164 @@ document.addEventListener('DOMContentLoaded', function () {
   // Chart instances (for destroy/re-create)
   var spendingChart = null;
   var categoryChart = null;
-  var balanceChart = null;
+  var balanceTrendChart = null;
+
+  // --- Balance trend + projection combined chart ---
+  var horizonSelect = document.getElementById('horizon-select');
+
+  function loadBalanceTrend() {
+    var horizon = horizonSelect ? horizonSelect.value : '60';
+    Promise.all([
+      fetch('/api/dashboard/balance-trend').then(function (r) { return r.json(); }),
+      fetch('/api/predictions/balance?horizon=' + horizon).then(function (r) { return r.json(); }),
+    ])
+      .then(function (results) {
+        var trendRes = results[0];
+        var projRes = results[1];
+
+        // Update KPI elements
+        var amountEl = document.getElementById('balance-trend-amount');
+        var badgeEl = document.getElementById('balance-trend-badge');
+        if (amountEl) amountEl.textContent = symbol + trendRes.current_balance;
+        if (badgeEl) {
+          var pct = trendRes.change_pct;
+          var isPositive = pct >= 0;
+          badgeEl.textContent = (isPositive ? '+' : '') + pct + '%';
+          badgeEl.className = 'mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium '
+            + (isPositive
+              ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-400'
+              : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-400');
+        }
+
+        // Runway warning
+        var rw = document.getElementById('runway-warning');
+        var rt = document.getElementById('runway-text');
+        if (projRes.runway && rw && rt) {
+          var days = Math.floor((new Date(projRes.runway + 'T00:00:00') - new Date()) / (1000*60*60*24));
+          rw.classList.remove('hidden');
+          rt.textContent = days > 0
+            ? days + ' days until projected zero'
+            : 'Projected balance below zero today';
+        } else if (rw) {
+          rw.classList.add('hidden');
+        }
+
+        var ctx = document.getElementById('balance-trend-chart');
+        if (!ctx) return;
+        if (balanceTrendChart) balanceTrendChart.destroy();
+
+        // Build combined labels and datasets
+        var trendData = trendRes.series || [];
+        var projData = projRes.projections || [];
+
+        // Create a unified label list (trend dates + projection dates)
+        var labelSet = {};
+        trendData.forEach(function (d) { labelSet[d.date] = true; });
+        projData.forEach(function (d) { labelSet[d.date] = true; });
+        var allDates = Object.keys(labelSet).sort();
+        var labels = allDates.map(function (d) { return d.slice(5); });
+
+        // Map trend data by date
+        var trendMap = {};
+        trendData.forEach(function (d) { trendMap[d.date] = parseFloat(d.balance); });
+
+        // Map projection data by date
+        var projMap = {};
+        projData.forEach(function (d) { projMap[d.date] = parseFloat(d.balance); });
+
+        // Build trend dataset (solid line, null for projection-only dates)
+        var trendValues = allDates.map(function (d) {
+          return d in trendMap ? trendMap[d] : null;
+        });
+
+        // Build projection dataset (dotted line, starts from last trend point)
+        var lastTrendDate = trendData.length ? trendData[trendData.length - 1].date : null;
+        var lastTrendBal = lastTrendDate ? trendMap[lastTrendDate] : null;
+        var projValues = allDates.map(function (d) {
+          if (d in projMap) {
+            // Bridge: if this is the last trend date, use trend value for continuity
+            if (d === lastTrendDate) return lastTrendBal;
+            return projMap[d];
+          }
+          return null;
+        });
+
+        balanceTrendChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: 'Actual balance',
+                data: trendValues,
+                borderColor: window.FF_COLORS.accent,
+                backgroundColor: window.FF_COLORS.accent + '20',
+                borderWidth: 2,
+                pointRadius: 0,
+                fill: true,
+                tension: 0.3,
+                spanGaps: false,
+              },
+              {
+                label: 'Projected balance',
+                data: projValues,
+                borderColor: window.FF_COLORS.accent,
+                borderWidth: 2,
+                borderDash: [6, 3],
+                pointRadius: 0,
+                fill: false,
+                tension: 0.3,
+                spanGaps: false,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+              mode: 'index',
+              intersect: false,
+            },
+            plugins: {
+              legend: {
+                display: true,
+                position: 'bottom',
+                labels: { font: { size: 11 }, boxWidth: 16, padding: 12, usePointStyle: true },
+              },
+              tooltip: {
+                filter: function (c) {
+                  return c.parsed.y !== null;
+                },
+                callbacks: {
+                  label: function (c) {
+                    if (c.parsed.y === null) return null;
+                    return c.dataset.label + ': ' + symbol + c.parsed.y.toFixed(2);
+                  },
+                },
+              },
+            },
+            scales: {
+              x: {
+                grid: { display: false },
+                ticks: { maxTicksLimit: 15, font: { size: 11 } },
+              },
+              y: {
+                grid: { color: 'rgba(0,0,0,0.06)' },
+                ticks: {
+                  font: { size: 11 },
+                  callback: function (v) { return symbol + v; },
+                },
+              },
+            },
+          },
+        });
+      })
+      .catch(function () {});
+  }
+
+  if (horizonSelect) {
+    horizonSelect.addEventListener('change', loadBalanceTrend);
+  }
 
   function loadAllData(period) {
     var p = getApiParams(period);
@@ -400,119 +567,11 @@ document.addEventListener('DOMContentLoaded', function () {
       .catch(function () {});
   }
 
-  // --- Balance projection line chart with confidence bands ---
-  var horizonSelect = document.getElementById('horizon-select');
-
-  function loadBalanceChart() {
-    var horizon = horizonSelect ? horizonSelect.value : '60';
-    fetch('/api/predictions/balance?horizon=' + horizon)
-      .then(function (r) { return r.json(); })
-      .then(function (res) {
-        var data = res.projections;
-        var ctx = document.getElementById('balance-chart');
-        if (!ctx) return;
-        if (balanceChart) balanceChart.destroy();
-        if (!data || !data.length) { balanceChart = null; return; }
-
-        // Runway warning
-        var rw = document.getElementById('runway-warning');
-        var rt = document.getElementById('runway-text');
-        if (res.runway && rw && rt) {
-          var days = Math.floor((new Date(res.runway + 'T00:00:00') - new Date()) / (1000*60*60*24));
-          rw.classList.remove('hidden');
-          rt.textContent = days > 0
-            ? days + ' days until projected zero'
-            : 'Projected balance below zero today';
-        } else if (rw) {
-          rw.classList.add('hidden');
-        }
-
-        var labels = data.map(function (d) { return d.date.slice(5); });
-        var balances = data.map(function (d) { return parseFloat(d.balance); });
-        var upper = data.map(function (d) { return parseFloat(d.upper); });
-        var lower = data.map(function (d) { return parseFloat(d.lower); });
-
-        balanceChart = new Chart(ctx, {
-          type: 'line',
-          data: {
-            labels: labels,
-            datasets: [
-              {
-                label: 'Upper bound',
-                data: upper,
-                borderColor: '#94a3b8',
-                borderDash: [5, 3],
-                borderWidth: 1.5,
-                pointRadius: 0,
-                fill: false,
-                tension: 0.3,
-              },
-              {
-                label: 'Projected balance',
-                data: balances,
-                borderColor: window.FF_COLORS.accent,
-                borderWidth: 2,
-                pointRadius: 0,
-                fill: false,
-                tension: 0.3,
-              },
-              {
-                label: 'Lower bound',
-                data: lower,
-                borderColor: '#94a3b8',
-                borderDash: [5, 3],
-                borderWidth: 1.5,
-                pointRadius: 0,
-                fill: false,
-                tension: 0.3,
-              },
-            ],
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              legend: {
-                display: true,
-                position: 'bottom',
-                labels: { font: { size: 11 }, boxWidth: 16, padding: 12, usePointStyle: true },
-              },
-              tooltip: {
-                callbacks: {
-                  label: function (c) {
-                    return c.dataset.label + ': ' + symbol + c.parsed.y.toFixed(2);
-                  },
-                },
-              },
-            },
-            scales: {
-              x: {
-                grid: { display: false },
-                ticks: { maxTicksLimit: 15, font: { size: 11 } },
-              },
-              y: {
-                grid: { color: 'rgba(0,0,0,0.06)' },
-                ticks: {
-                  font: { size: 11 },
-                  callback: function (v) { return symbol + v; },
-                },
-              },
-            },
-          },
-        });
-      })
-      .catch(function () {});
-  }
-
-  if (horizonSelect) {
-    horizonSelect.addEventListener('change', loadBalanceChart);
-  }
-
   // Initial load
   var initialPeriod = periodSelect ? periodSelect.value : 'current_month';
   updateKpiLabels(initialPeriod);
   loadAllData(initialPeriod);
-  loadBalanceChart();
+  loadBalanceTrend();
 
   // Re-fetch on period change
   if (periodSelect) {
