@@ -192,7 +192,7 @@ def test_category_breakdown_with_categories(db_session: Session):
     labels = {b["label"] for b in breakdown}
     assert "Food" in labels
     assert "Rent" in labels
-    assert "Salary" in labels
+    assert "Salary" not in labels
     assert "Income" not in labels
     assert "Expense" not in labels
 

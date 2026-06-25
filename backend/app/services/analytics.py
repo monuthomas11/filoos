@@ -9,7 +9,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.budget import Budget, BudgetPeriod
-from app.models.category import Category
+from app.models.category import Category, CategoryType
 from app.models.transaction import Transaction, TransactionType
 
 
@@ -171,7 +171,10 @@ def category_breakdown(
     cat_query = cat_query.filter(Transaction.user_id == user_id)
     if start is not None and end is not None:
         cat_query = cat_query.filter(Transaction.date >= start, Transaction.date < end)
-    cat_query = cat_query.filter(Transaction.type != TransactionType.TRANSFER)
+    cat_query = cat_query.filter(
+        Transaction.type != TransactionType.TRANSFER,
+        Category.type == CategoryType.EXPENSE,
+    )
     cat_rows = cat_query.group_by(Category.id, Category.name, Category.color).all()
 
     # Check if any transactions have categories assigned
