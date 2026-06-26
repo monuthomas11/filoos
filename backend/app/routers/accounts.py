@@ -84,6 +84,8 @@ async def account_create(
     color: str | None = Form(None),
     icon: str | None = Form(None),
     is_active: bool = Form(True),
+    show_on_dashboard: bool = Form(True),
+    include_in_total: bool = Form(True),
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
@@ -96,10 +98,15 @@ async def account_create(
             color=color or None,
             icon=icon or None,
             is_active=is_active,
+            show_on_dashboard=show_on_dashboard,
+            include_in_total=include_in_total,
         )
     except PydanticValidationError as exc:
         raise HTTPException(status_code=422, detail=exc.errors()) from exc
-    account = create_account(db, data, user_id=user.id)
+    try:
+        account = create_account(db, data, user_id=user.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     if is_htmx(request):
         return Response(status_code=200, headers={"HX-Redirect": "/accounts"})
     return _respond_with_card(request, account, db)
@@ -116,6 +123,8 @@ async def account_update(
     color: str | None = Form(None),
     icon: str | None = Form(None),
     is_active: bool | None = Form(None),
+    show_on_dashboard: bool | None = Form(None),
+    include_in_total: bool | None = Form(None),
     db: Session = Depends(get_db),
     user=Depends(get_current_user),
 ):
@@ -137,9 +146,16 @@ async def account_update(
         patch["icon"] = icon
     if is_active is not None:
         patch["is_active"] = is_active
+    if show_on_dashboard is not None:
+        patch["show_on_dashboard"] = show_on_dashboard
+    if include_in_total is not None:
+        patch["include_in_total"] = include_in_total
 
     data = AccountUpdate(**patch)
-    account = update_account(db, account_id, data, user_id=user.id)
+    try:
+        account = update_account(db, account_id, data, user_id=user.id)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     if account is None:
         return HTMLResponse("Account not found", status_code=404)
     if is_htmx(request):

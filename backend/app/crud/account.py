@@ -6,18 +6,26 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
-from app.models.account import ACCOUNT_TYPE_COLORS, Account
+from app.models.account import ACCOUNT_TYPE_COLORS, Account, AccountType
 from app.schemas.account import AccountCreate, AccountUpdate
 
 
 def list_accounts(
-    db: Session, active_only: bool = False, user_id: int | None = None
+    db: Session,
+    active_only: bool = False,
+    user_id: int | None = None,
+    show_on_dashboard: bool | None = None,
+    include_in_total: bool | None = None,
 ) -> list[Account]:
     q = db.query(Account)
     if user_id is not None:
         q = q.filter(Account.user_id == user_id)
     if active_only:
         q = q.filter(Account.is_active.is_(True))
+    if show_on_dashboard is not None:
+        q = q.filter(Account.show_on_dashboard.is_(show_on_dashboard))
+    if include_in_total is not None:
+        q = q.filter(Account.include_in_total.is_(include_in_total))
     return q.order_by(Account.created_at).all()
 
 
@@ -30,13 +38,20 @@ def get_account(db: Session, account_id: int, user_id: int | None = None) -> Acc
 
 def create_account(db: Session, data: AccountCreate, user_id: int | None = None) -> Account:
     payload = data.model_dump()
-    # Infer a default colour from the account type if none was provided.
     if payload.get("color") is None:
         payload["color"] = ACCOUNT_TYPE_COLORS.get(data.type, "#4f46e5")
     if user_id is not None:
         payload["user_id"] = user_id
     account = Account(**payload)
     db.add(account)
+    db.flush()
+
+    if data.type == AccountType.CREDIT_CARD:
+        computed = compute_balance(account, db)
+        if computed > 0:
+            db.rollback()
+            raise ValueError("Credit card computed balance must be zero or negative — reduce opening balance or clear transactions")
+
     db.commit()
     db.refresh(account)
     return account
@@ -50,6 +65,14 @@ def update_account(
         return None
     for key, value in data.model_dump(exclude_unset=True).items():
         setattr(account, key, value)
+    db.flush()
+
+    if account.type == AccountType.CREDIT_CARD:
+        computed = compute_balance(account, db)
+        if computed > 0:
+            db.rollback()
+            raise ValueError("Credit card computed balance must be zero or negative — reduce opening balance or clear transactions")
+
     db.commit()
     db.refresh(account)
     return account

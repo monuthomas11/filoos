@@ -212,12 +212,11 @@ document.addEventListener('DOMContentLoaded', function () {
   };
 
   function updateKpiLabels(period) {
-    var label = periodLabels[period] || period;
     var incomeLabel = document.getElementById('kpi-income-label');
     var expenseLabel = document.getElementById('kpi-expense-label');
     var savingsLabel = document.getElementById('kpi-savings-label');
-    if (incomeLabel) incomeLabel.textContent = label;
-    if (expenseLabel) expenseLabel.textContent = label;
+    if (incomeLabel) incomeLabel.textContent = 'Income';
+    if (expenseLabel) expenseLabel.textContent = 'Expense';
     if (savingsLabel) savingsLabel.textContent = 'Savings rate';
   }
 

@@ -391,10 +391,14 @@ def balance_trend(
         prev_month_end = month_start - datetime.timedelta(days=1)
     prev_month_start = prev_month_end.replace(day=1)
 
-    # Get all active accounts
+    # Get all active accounts that are included in total
     accounts = (
         db.query(Account)
-        .filter(Account.user_id == user_id, Account.is_active.is_(True))
+        .filter(
+            Account.user_id == user_id,
+            Account.is_active.is_(True),
+            Account.include_in_total.is_(True),
+        )
         .all()
     )
     if not accounts:

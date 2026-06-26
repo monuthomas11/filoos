@@ -35,7 +35,7 @@
       <label for="type" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Type</label>
       <select
         id="type" name="type" required
-        onchange="document.getElementById('account-color-preview').style.backgroundColor=this.options[this.selectedIndex].dataset.color"
+        onchange="document.getElementById('account-color-preview').style.backgroundColor=this.options[this.selectedIndex].dataset.color; var ob = document.getElementById('opening_balance'); if (this.value === 'credit_card') { ob.min = ''; ob.max = '0'; } else { ob.min = '0'; ob.max = ''; }"
         class="mt-1 block w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
       >
         {% set types = [("cash", "Cash"), ("bank", "Bank"), ("credit_card", "Credit Card"), ("savings", "Savings"), ("investment", "Investment")] %}
@@ -59,8 +59,9 @@
     <!-- Opening balance -->
     <div>
       <label for="opening_balance" class="block text-sm font-medium text-neutral-700 dark:text-neutral-300">Opening balance ({{ currency_symbol }})</label>
-      <input
-        type="number" id="opening_balance" name="opening_balance" step="0.01" min="0"
+        <input
+        type="number" id="opening_balance" name="opening_balance" step="0.01"
+        {% if account and account.type.value == 'credit_card' %}max="0"{% else %}min="0"{% endif %}
         value="{{ account.opening_balance|string if account else '0.00' }}"
         class="mt-1 block w-40 rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 focus:border-accent-500 focus:outline-none focus:ring-1 focus:ring-accent-500 dark:border-neutral-700 dark:bg-neutral-900 dark:text-neutral-100"
       />
@@ -91,6 +92,28 @@
         class="h-4 w-4 rounded border-neutral-300 text-accent-600 focus:ring-accent-500 dark:border-neutral-700"
       />
       <label for="is_active" class="text-sm text-neutral-700 dark:text-neutral-300">Active</label>
+    </div>
+
+    <!-- Show on Dashboard -->
+    <div class="flex items-center gap-2">
+      <input type="hidden" name="show_on_dashboard" value="false" />
+      <input
+        type="checkbox" id="show_on_dashboard" name="show_on_dashboard" value="true"
+        {% if not account or account.show_on_dashboard %}checked{% endif %}
+        class="h-4 w-4 rounded border-neutral-300 text-accent-600 focus:ring-accent-500 dark:border-neutral-700"
+      />
+      <label for="show_on_dashboard" class="text-sm text-neutral-700 dark:text-neutral-300">Show on Dashboard</label>
+    </div>
+
+    <!-- Include in Total Balance -->
+    <div class="flex items-center gap-2">
+      <input type="hidden" name="include_in_total" value="false" />
+      <input
+        type="checkbox" id="include_in_total" name="include_in_total" value="true"
+        {% if not account or account.include_in_total %}checked{% endif %}
+        class="h-4 w-4 rounded border-neutral-300 text-accent-600 focus:ring-accent-500 dark:border-neutral-700"
+      />
+      <label for="include_in_total" class="text-sm text-neutral-700 dark:text-neutral-300">Include in Total Balance</label>
     </div>
 
     <div class="flex items-center gap-3 pt-2">
