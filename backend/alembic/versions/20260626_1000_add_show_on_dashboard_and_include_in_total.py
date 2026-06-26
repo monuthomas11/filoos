@@ -32,11 +32,11 @@ def upgrade() -> None:
     with op.batch_alter_table("accounts") as batch_op:
         if not _column_exists("accounts", "show_on_dashboard", bind):
             batch_op.add_column(
-                sa.Column("show_on_dashboard", sa.Boolean(), nullable=False, server_default=sa.text("1"))
+                sa.Column("show_on_dashboard", sa.Boolean(), nullable=False, server_default=sa.text("true"))
             )
         if not _column_exists("accounts", "include_in_total", bind):
             batch_op.add_column(
-                sa.Column("include_in_total", sa.Boolean(), nullable=False, server_default=sa.text("1"))
+                sa.Column("include_in_total", sa.Boolean(), nullable=False, server_default=sa.text("true"))
             )
 
     op.execute(
