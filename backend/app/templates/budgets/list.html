@@ -11,7 +11,7 @@
   </div>
 
   {% if budgets %}
-  <div id="budget-list" class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+  <div id="budget-list" class="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-4">
     {% for budget in budgets %}
       {% set pb = progress.get(budget.id) %}
       {% include "partials/budget_card.html" %}

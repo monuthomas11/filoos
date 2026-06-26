@@ -1,18 +1,17 @@
 <div
   id="category-card-{{ cat.id }}"
-  class="group rounded-lg border border-neutral-200 bg-white p-4 transition hover:shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
+  class="group rounded-lg border border-neutral-200 bg-white p-3 transition hover:shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:p-4"
 >
   <div class="flex items-start justify-between">
-    <div class="flex items-center gap-3">
-      <span
-        class="inline-flex h-10 w-10 items-center justify-center rounded-lg text-lg font-bold text-white"
+    <div class="flex items-center gap-2 sm:gap-3">
+      <a href="/categories/{{ cat.id }}/edit" class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-white hover:ring-2 hover:ring-accent-300 sm:h-10 sm:w-10 sm:text-lg dark:hover:ring-accent-500"
         style="background-color: {{ cat.color or '#7c3aed' }}"
       >
         {{ cat.name[:1] }}
-      </span>
-      <div>
-        <p class="font-semibold text-neutral-900 dark:text-neutral-100">{{ cat.name }}</p>
-        <p class="text-xs text-neutral-500 dark:text-neutral-400">{{ cat.type.value|title }}</p>
+      </a>
+      <div class="min-w-0">
+        <a href="/categories/{{ cat.id }}/edit" class="block truncate text-sm font-semibold text-neutral-900 hover:text-accent-600 dark:text-neutral-100 dark:hover:text-accent-500 sm:text-base">{{ cat.name }}</a>
+        <p class="truncate text-[10px] text-neutral-500 dark:text-neutral-400 sm:text-xs">{{ cat.type.value|title }}</p>
       </div>
     </div>
     <div class="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">

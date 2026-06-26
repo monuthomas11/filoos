@@ -1,9 +1,9 @@
 <div
   id="tx-row-{{ tx.id }}"
-  class="group flex items-center gap-4 rounded-lg border border-neutral-200 bg-white px-4 py-3 transition hover:shadow-sm dark:border-neutral-800 dark:bg-neutral-900"
+  class="group flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 transition hover:shadow-sm dark:border-neutral-800 dark:bg-neutral-900 sm:gap-4 sm:px-4 sm:py-3"
 >
   <!-- Type icon -->
-  <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold
+  <a href="/transactions/{{ tx.id }}/edit" class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-xs font-bold hover:ring-2 hover:ring-accent-300 sm:h-8 sm:w-8 sm:text-sm dark:hover:ring-accent-500
     {% if tx.type.value == 'income' %}
       bg-positive-500/10 text-positive-600
     {% elif tx.type.value == 'transfer' %}
@@ -13,18 +13,18 @@
     {% endif %}
   ">
     {% if tx.type.value == 'income' %}
-    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22,7 13.5,15.5 8.5,10.5 2,17"/><polyline points="16,7 22,7 22,13"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 sm:h-4 sm:w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22,7 13.5,15.5 8.5,10.5 2,17"/><polyline points="16,7 22,7 22,13"/></svg>
     {% elif tx.type.value == 'transfer' %}
-    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="17,1 21,5 17,9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7,23 3,19 7,15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 sm:h-4 sm:w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="17,1 21,5 17,9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7,23 3,19 7,15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
     {% else %}
-    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22,17 13.5,8.5 8.5,13.5 2,7"/><polyline points="16,17 22,17 22,11"/></svg>
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 sm:h-4 sm:w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22,17 13.5,8.5 8.5,13.5 2,7"/><polyline points="16,17 22,17 22,11"/></svg>
     {% endif %}
-  </span>
+  </a>
 
   <!-- Details -->
   <div class="min-w-0 flex-1">
-    <p class="truncate text-sm font-medium text-neutral-900 dark:text-neutral-100">{{ tx.description }}</p>
-    <p class="text-xs text-neutral-500 dark:text-neutral-400">
+    <a href="/transactions/{{ tx.id }}/edit" class="block truncate text-sm font-medium text-neutral-900 hover:text-accent-600 dark:text-neutral-100 dark:hover:text-accent-500">{{ tx.description }}</a>
+    <p class="truncate text-[10px] text-neutral-500 dark:text-neutral-400 sm:text-xs">
       {% if tx.type.value == 'transfer' and tx.transfer_pair_id %}
         {% set paired_name = paired_accounts.get(tx.id, '') %}
         {% if tx.amount < 0 %}
@@ -40,7 +40,7 @@
 
   <!-- Date + amount -->
   <div class="flex flex-col items-end gap-0.5">
-    <p class="text-xs text-neutral-400">{{ tx.date.isoformat() }}</p>
+    <p class="text-[10px] text-neutral-400 sm:text-xs">{{ tx.date.isoformat() }}</p>
     <p class="text-sm font-semibold tracking-tight
       {% if tx.amount > 0 %}
         text-positive-600
