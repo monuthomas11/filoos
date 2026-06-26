@@ -266,10 +266,14 @@ def compute_account_balance(account: Account, db: Session) -> Decimal:
 
 
 def compute_total_balance(accounts: list[Account], db: Session) -> Decimal:
-    """Return the sum of balances across multiple accounts in a single query."""
-    if not accounts:
+    """Return the sum of balances across multiple accounts in a single query.
+
+    Only includes accounts where ``include_in_total`` is True.
+    """
+    included = [a for a in accounts if a.include_in_total]
+    if not included:
         return Decimal("0.00")
-    account_ids = [a.id for a in accounts]
+    account_ids = [a.id for a in included]
     tx_sums = dict(
         db.query(
             Transaction.account_id,
@@ -279,7 +283,7 @@ def compute_total_balance(accounts: list[Account], db: Session) -> Decimal:
         .group_by(Transaction.account_id)
         .all()
     )
-    return sum(a.opening_balance + tx_sums.get(a.id, Decimal("0.00")) for a in accounts)
+    return sum(a.opening_balance + tx_sums.get(a.id, Decimal("0.00")) for a in included)
 
 
 def get_recent_transactions(

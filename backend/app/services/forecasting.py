@@ -249,8 +249,8 @@ def balance_projection(
     if today is None:
         today = datetime.date.today()
 
-    # Current total balance across all user's active accounts (single query)
-    accounts = list_accounts(db, active_only=True, user_id=user_id)
+    # Current total balance across all user's active accounts included in total
+    accounts = list_accounts(db, active_only=True, include_in_total=True, user_id=user_id)
     current_balance = compute_total_balance(accounts, db)
 
     # Decompose income and expense series

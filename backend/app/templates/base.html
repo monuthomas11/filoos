@@ -136,24 +136,12 @@
       aria-label="Mobile navigation"
     >
       <div class="flex flex-col gap-1">
-        {% if cu %}
-        <div class="flex items-center gap-3 rounded-lg px-3 py-2.5">
-          <span class="inline-flex h-9 w-9 items-center justify-center rounded-full bg-accent-600 text-sm font-bold text-white">{{ cu.name[:1] | upper }}</span>
-          <div class="min-w-0">
-            <p class="truncate text-sm font-medium text-neutral-900 dark:text-neutral-100">{{ cu.name }}</p>
-            <p class="truncate text-xs text-neutral-500 dark:text-neutral-400">{{ cu.email }}</p>
-          </div>
-        </div>
-        {% endif %}
         <a href="/" @click="mobileOpen = false" class="rounded-lg px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-900">Dashboard</a>
         <a href="/accounts" @click="mobileOpen = false" class="rounded-lg px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-900">Accounts</a>
         <a href="/transactions" @click="mobileOpen = false" class="rounded-lg px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-900">Transactions</a>
         <a href="/categories" @click="mobileOpen = false" class="rounded-lg px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-900">Categories</a>
         <a href="/budgets" @click="mobileOpen = false" class="rounded-lg px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-900">Budgets</a>
         <a href="/recurring" @click="mobileOpen = false" class="rounded-lg px-3 py-2.5 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-900">Recurring</a>
-        <form method="post" action="/auth/logout">
-          <button type="submit" @click="mobileOpen = false" class="w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:text-neutral-300 dark:hover:bg-neutral-900">Sign out</button>
-        </form>
       </div>
     </nav>
   </header>

@@ -52,3 +52,5 @@ class Account(Base, TimestampMixin):
     color: Mapped[str | None] = mapped_column(String(7), nullable=True)
     icon: Mapped[str | None] = mapped_column(String(50), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    show_on_dashboard: Mapped[bool] = mapped_column(Boolean, default=True)
+    include_in_total: Mapped[bool] = mapped_column(Boolean, default=True)
