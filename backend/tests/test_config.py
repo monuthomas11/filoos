@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 from unittest.mock import patch
 
+import pytest
+
 
 def test_settings_load_with_defaults():
     """Settings should load with sensible defaults."""
@@ -139,6 +141,17 @@ def test_settings_database_url_default():
     settings = Settings()
     assert "sqlite:///" in settings.database_url
     assert "expenses.db" in settings.database_url
+
+
+def test_create_app_requires_privacy_email_in_production():
+    """Production app creation should fail if the privacy contact email is missing."""
+    from app.config import Settings
+    from app.main import create_app
+
+    with patch.dict(os.environ, {"FF_APP_ENV": "production", "FF_DEBUG": "false"}, clear=True):
+        settings = Settings(_env_file=None, app_env="production", debug=False, session_secret="test-secret")
+        with pytest.raises(RuntimeError, match="FF_PRIVACY_EMAIL"):
+            create_app(settings)
 
 
 def test_database_url_translates_bare_postgresql_to_psycopg():

@@ -22,6 +22,7 @@ templates.env.globals.update(
     default_currency=settings.default_currency,
     currency_symbol=settings.currency_symbol,
     app_env=settings.app_env,
+    privacy_email=settings.privacy_email,
 )
 
 

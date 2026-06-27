@@ -1,0 +1,10 @@
+{% if request.url.path != '/privacy' %}
+<div class="border-b border-neutral-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-900 dark:border-neutral-800 dark:bg-amber-950/40 dark:text-amber-200">
+  <div class="mx-auto flex max-w-7xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    <p>
+      This site uses a strictly-necessary session cookie to keep you signed in. It is not used for tracking or advertising.
+      <a href="/privacy" class="font-medium underline underline-offset-2">Read our privacy policy</a>.
+    </p>
+  </div>
+</div>
+{% endif %}

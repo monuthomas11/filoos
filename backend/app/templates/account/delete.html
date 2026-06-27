@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="mx-auto max-w-lg space-y-8">
+  <div class="text-center">
+    <div class="mx-auto mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-negative-100 dark:bg-negative-950">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-negative-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+    </div>
+    <h1 class="text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">Delete Account</h1>
+    <p class="mt-2 text-sm text-neutral-600 dark:text-neutral-400">
+      This will permanently delete your account and all associated data.
+    </p>
+  </div>
+
+  <div class="rounded-lg border border-negative-200 bg-negative-50 px-4 py-3 dark:border-negative-800 dark:bg-negative-950">
+    <p class="text-sm font-medium text-negative-800 dark:text-negative-300">
+      <strong>Warning:</strong> This action cannot be undone. All your accounts, transactions,
+      categories, budgets, and recurring rules will be immediately and permanently deleted.
+    </p>
+  </div>
+
+  <form method="post" action="/auth/delete-account" class="space-y-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <button
+      type="submit"
+      class="flex w-full items-center justify-center gap-2 rounded-lg bg-negative-600 px-4 py-3 text-sm font-medium text-white shadow-sm hover:bg-negative-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-negative-600"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+      Permanently delete my account
+    </button>
+    <a
+      href="/account/settings"
+      class="flex w-full items-center justify-center gap-2 rounded-lg border border-neutral-200 bg-white px-4 py-3 text-sm font-medium text-neutral-700 shadow-sm hover:bg-neutral-50 dark:border-neutral-700 dark:bg-transparent dark:text-neutral-300 dark:hover:bg-neutral-900"
+    >
+      Cancel
+    </a>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,287 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mx-auto max-w-3xl space-y-10">
+  <div class="space-y-2">
+    <h1 class="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">Privacy Policy</h1>
+    <p class="text-sm text-neutral-500 dark:text-neutral-400">
+      Last updated: {{ last_updated }} &middot; Applies to {{ app_name }}
+    </p>
+  </div>
+
+  <section class="space-y-4">
+    <h2 class="text-xl font-semibold text-neutral-900 dark:text-white">1. Who we are</h2>
+    <p class="text-neutral-700 dark:text-neutral-300 leading-relaxed">
+      {{ app_name }} is a personal expense-tracking web application operated by
+      Monu Thomas. For any privacy question or data request, contact us at
+      <a href="mailto:{{ privacy_email }}" class="font-medium text-accent-600 hover:underline dark:text-accent-400">{{ privacy_email }}</a>.
+    </p>
+    <p class="text-neutral-700 dark:text-neutral-300 leading-relaxed">
+      We are the <strong>data controller</strong> for the personal data you submit through the Service.
+    </p>
+  </section>
+
+  <section class="space-y-4">
+    <h2 class="text-xl font-semibold text-neutral-900 dark:text-white">2. What personal data we collect</h2>
+    <div class="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-700">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-neutral-200 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900">
+            <th class="px-4 py-2.5 text-left font-medium text-neutral-900 dark:text-white">Category</th>
+            <th class="px-4 py-2.5 text-left font-medium text-neutral-900 dark:text-white">Examples</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-neutral-200 dark:divide-neutral-700">
+          <tr>
+            <td class="px-4 py-2.5 font-medium text-neutral-900 dark:text-white">Account / identity</td>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">Your Google email address, display name, and a stable Google account identifier (<code class="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">sub</code>).</td>
+          </tr>
+          <tr>
+            <td class="px-4 py-2.5 font-medium text-neutral-900 dark:text-white">Financial data you enter</td>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">Account names/types/balances, transactions (amounts, dates, descriptions, notes), categories, budgets, and recurring rules.</td>
+          </tr>
+          <tr>
+            <td class="px-4 py-2.5 font-medium text-neutral-900 dark:text-white">Usage / technical</td>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">Request method, path, HTTP status, request ID, and duration &mdash; recorded in server logs for security and reliability.</td>
+          </tr>
+          <tr>
+            <td class="px-4 py-2.5 font-medium text-neutral-900 dark:text-white">Cookies</td>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">A single strictly-necessary session cookie that keeps you signed in.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="text-neutral-700 dark:text-neutral-300 leading-relaxed">
+      We <strong>do not</strong> collect: payment card numbers, bank login credentials, government IDs,
+      biometric data, precise geolocation, or marketing-tracking data. We never sell your data.
+    </p>
+  </section>
+
+  <section class="space-y-4">
+    <h2 class="text-xl font-semibold text-neutral-900 dark:text-white">3. How we get your data</h2>
+    <ul class="list-disc space-y-2 pl-5 text-neutral-700 dark:text-neutral-300 leading-relaxed">
+      <li><strong>Identity data</strong> is obtained from Google when you sign in with Google (OAuth scope: <code class="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">openid email profile</code>).</li>
+      <li><strong>Financial data</strong> is provided by you directly when you create accounts, transactions, budgets, etc.</li>
+      <li><strong>Technical/log data</strong> is generated automatically by the server on each request.</li>
+    </ul>
+  </section>
+
+  <section class="space-y-4">
+    <h2 class="text-xl font-semibold text-neutral-900 dark:text-white">4. Why we use your data &mdash; lawful basis</h2>
+    <p class="text-neutral-700 dark:text-neutral-300 leading-relaxed">
+      We process your personal data on the following lawful bases under the GDPR:
+    </p>
+    <div class="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-700">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-neutral-200 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900">
+            <th class="px-4 py-2.5 text-left font-medium text-neutral-900 dark:text-white">Purpose</th>
+            <th class="px-4 py-2.5 text-left font-medium text-neutral-900 dark:text-white">Data</th>
+            <th class="px-4 py-2.5 text-left font-medium text-neutral-900 dark:text-white">Lawful basis</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-neutral-200 dark:divide-neutral-700">
+          <tr>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">Provide the expense-tracking Service you signed up for</td>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">Identity + financial data</td>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300"><strong>Contract</strong> (Art. 6(1)(b)) &mdash; necessary to deliver the service you requested.</td>
+          </tr>
+          <tr>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">Keep you signed in securely</td>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">Session cookie + identity</td>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300"><strong>Contract.</strong></td>
+          </tr>
+          <tr>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">Detect abuse, debug errors, keep the Service reliable</td>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">Technical/log data</td>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300"><strong>Legitimate interest</strong> (Art. 6(1)(f)) &mdash; security and stability.</td>
+          </tr>
+          <tr>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">Create your account on first sign-in</td>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">Google identity</td>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300"><strong>Contract</strong> &mdash; taking steps before entering the contract.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="text-neutral-700 dark:text-neutral-300 leading-relaxed">
+      We do <strong>not</strong> rely on consent for core processing, and we do <strong>not</strong>
+      perform profiling or automated decision-making with legal effects.
+    </p>
+  </section>
+
+  <section class="space-y-4">
+    <h2 class="text-xl font-semibold text-neutral-900 dark:text-white">5. Third parties who process your data</h2>
+    <p class="text-neutral-700 dark:text-neutral-300 leading-relaxed">
+      We use the following service providers (&ldquo;processors&rdquo;). Each may access limited
+      personal data only to deliver their service to us.
+    </p>
+    <div class="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-700">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-neutral-200 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900">
+            <th class="px-4 py-2.5 text-left font-medium text-neutral-900 dark:text-white">Provider</th>
+            <th class="px-4 py-2.5 text-left font-medium text-neutral-900 dark:text-white">Role</th>
+            <th class="px-4 py-2.5 text-left font-medium text-neutral-900 dark:text-white">Data accessed</th>
+            <th class="px-4 py-2.5 text-left font-medium text-neutral-900 dark:text-white">Location</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-neutral-200 dark:divide-neutral-700">
+          <tr>
+            <td class="px-4 py-2.5 font-medium text-neutral-900 dark:text-white">Google LLC</td>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">Authentication (Google Sign-In)</td>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">Email, name, account ID</td>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">United States</td>
+          </tr>
+          <tr>
+            <td class="px-4 py-2.5 font-medium text-neutral-900 dark:text-white">Render Services</td>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">Web hosting</td>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">All data processed by the app</td>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">{{ hosting_region }}</td>
+          </tr>
+          <tr>
+            <td class="px-4 py-2.5 font-medium text-neutral-900 dark:text-white">Neon Inc.</td>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">Managed database</td>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">All stored app data</td>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">{{ database_region }}</td>
+          </tr>
+          <tr>
+            <td class="px-4 py-2.5 font-medium text-neutral-900 dark:text-white">unpkg.com / jsdelivr.com</td>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">CDN for front-end libraries</td>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">IP address (as with any HTTP request); no account data</td>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">Global / US</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="text-neutral-700 dark:text-neutral-300 leading-relaxed">
+      We do not transfer your data to any other third party, and we never sell it.
+    </p>
+    <p class="text-neutral-700 dark:text-neutral-300 leading-relaxed">
+      <strong>International transfers.</strong> Because Google and the CDN providers operate from
+      the United States (and other regions), your data may be transferred outside the
+      EU/EEA. We rely on the EU&ndash;US Data Privacy Framework (where the provider is
+      certified) and Standard Contractual Clauses as appropriate safeguards, together
+      with the technical measures described in &sect;7.
+    </p>
+  </section>
+
+  <section class="space-y-4">
+    <h2 class="text-xl font-semibold text-neutral-900 dark:text-white">6. How long we keep your data</h2>
+    <div class="overflow-x-auto rounded-lg border border-neutral-200 dark:border-neutral-700">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-neutral-200 bg-neutral-50 dark:border-neutral-700 dark:bg-neutral-900">
+            <th class="px-4 py-2.5 text-left font-medium text-neutral-900 dark:text-white">Data</th>
+            <th class="px-4 py-2.5 text-left font-medium text-neutral-900 dark:text-white">Retention</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-neutral-200 dark:divide-neutral-700">
+          <tr>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">Your account + financial data</td>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">Until you delete your account (see &sect;8).</td>
+          </tr>
+          <tr>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">Server logs</td>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">~7 days (hosting-provider retention).</td>
+          </tr>
+          <tr>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">Session cookie</td>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">14 days of inactivity, then it expires.</td>
+          </tr>
+          <tr>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">Database backups</td>
+            <td class="px-4 py-2.5 text-neutral-700 dark:text-neutral-300">7 days point-in-time recovery (provider-managed).</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="text-neutral-700 dark:text-neutral-300 leading-relaxed">
+      You can request earlier deletion at any time (&sect;8).
+    </p>
+  </section>
+
+  <section class="space-y-4">
+    <h2 class="text-xl font-semibold text-neutral-900 dark:text-white">7. Security</h2>
+    <p class="text-neutral-700 dark:text-neutral-300 leading-relaxed">
+      We protect your data with: HTTPS/TLS for all traffic; signed,
+      <code class="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">HttpOnly</code>,
+      <code class="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">Secure</code>,
+      <code class="rounded bg-neutral-100 px-1 py-0.5 text-xs dark:bg-neutral-800">SameSite</code>
+      session cookies; per-user data isolation (you can only ever see your own data);
+      parameterized database queries; secrets stored as encrypted hosting-provider
+      environment variables (never in the source code); and database backups with
+      point-in-time recovery. No method of transmission or storage is 100% secure,
+      but we apply industry-standard safeguards.
+    </p>
+  </section>
+
+  <section class="space-y-4">
+    <h2 class="text-xl font-semibold text-neutral-900 dark:text-white">8. Your rights (GDPR)</h2>
+    <p class="text-neutral-700 dark:text-neutral-300 leading-relaxed">
+      You have the following rights regarding your personal data:
+    </p>
+    <ul class="list-disc space-y-2 pl-5 text-neutral-700 dark:text-neutral-300 leading-relaxed">
+      <li><strong>Access</strong> &mdash; request a copy of the data we hold about you.</li>
+      <li><strong>Rectification</strong> &mdash; correct inaccurate data.</li>
+      <li><strong>Erasure</strong> &mdash; request deletion of your account and all associated data (&ldquo;right to be forgotten&rdquo;).</li>
+      <li><strong>Restriction / objection</strong> &mdash; ask us to limit or stop certain processing.</li>
+      <li><strong>Data portability</strong> &mdash; receive your data in a structured, machine-readable format (JSON).</li>
+      <li><strong>Withdraw consent</strong> &mdash; not applicable to core processing (which relies on contract / legitimate interest, not consent), but you can sign out at any time.</li>
+      <li><strong>Lodge a complaint</strong> with your local data-protection authority (e.g., <a href="https://edpb.europa.eu/" class="font-medium text-accent-600 hover:underline dark:text-accent-400" rel="noopener noreferrer" target="_blank">edpb.europa.eu</a>).</li>
+    </ul>
+    <p class="text-neutral-700 dark:text-neutral-300 leading-relaxed">
+      To exercise any right, email
+      <a href="mailto:{{ privacy_email }}" class="font-medium text-accent-600 hover:underline dark:text-accent-400">{{ privacy_email }}</a>.
+      We respond within 30 days.
+    </p>
+  </section>
+
+  <section class="space-y-4">
+    <h2 class="text-xl font-semibold text-neutral-900 dark:text-white">9. Cookies</h2>
+    <p class="text-neutral-700 dark:text-neutral-300 leading-relaxed">
+      The Service uses a <strong>single strictly-necessary session cookie</strong> to keep you
+      signed in. This cookie is essential to the Service and is <strong>not</strong> used for
+      tracking or advertising. Because it is strictly necessary, no consent banner is
+      required, but we inform you about it here. The cookie is cleared when you sign
+      out or after 14 days of inactivity. We do not use third-party tracking,
+      analytics, or advertising cookies.
+    </p>
+  </section>
+
+  <section class="space-y-4">
+    <h2 class="text-xl font-semibold text-neutral-900 dark:text-white">10. Children&rsquo;s data</h2>
+    <p class="text-neutral-700 dark:text-neutral-300 leading-relaxed">
+      The Service is not directed to children under 16. We do not knowingly collect
+      data from anyone under 16. If you believe a minor has provided us with personal
+      data, contact us and we will delete it.
+    </p>
+  </section>
+
+  <section class="space-y-4">
+    <h2 class="text-xl font-semibold text-neutral-900 dark:text-white">11. Changes to this policy</h2>
+    <p class="text-neutral-700 dark:text-neutral-300 leading-relaxed">
+      We may update this policy from time to time. We will notify you of material
+      changes (e.g., new processing or new processors) via the app or by email. The
+      &ldquo;Last updated&rdquo; date at the top always reflects the current version.
+    </p>
+  </section>
+
+  <section class="space-y-4">
+    <h2 class="text-xl font-semibold text-neutral-900 dark:text-white">12. Contact</h2>
+    <p class="text-neutral-700 dark:text-neutral-300 leading-relaxed">
+      For privacy questions, data requests, or to exercise any right above, contact:
+    </p>
+    <p>
+      <a href="mailto:{{ privacy_email }}" class="font-medium text-accent-600 hover:underline dark:text-accent-400">{{ privacy_email }}</a>
+    </p>
+  </section>
+
+  <div class="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-neutral-700 dark:bg-neutral-900">
+    <h3 class="mb-1 text-sm font-semibold text-neutral-900 dark:text-white">Changelog</h3>
+    <ul class="list-disc space-y-0.5 pl-5 text-xs text-neutral-600 dark:text-neutral-400">
+      <li>2026-06-27 &mdash; Initial version published with the launch of {{ app_name }}.</li>
+    </ul>
+  </div>
+</div>
+{% endblock %}
