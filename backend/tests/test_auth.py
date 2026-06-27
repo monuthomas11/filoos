@@ -11,39 +11,14 @@ Covers:
 
 from __future__ import annotations
 
-from collections.abc import Generator
-from contextlib import contextmanager
-from unittest.mock import AsyncMock, MagicMock, patch
-
-import pytest
-from fastapi.responses import RedirectResponse
-from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from starlette.middleware.httpsredirect import HTTPSRedirectMiddleware
-from starlette.middleware.sessions import SessionMiddleware
+from unittest.mock import patch
 
 import app.models  # noqa: F401 — register all models on Base.metadata
 import app.routers.auth as auth_mod
-from app.database import Base, get_db
-from app.main import app
 from app.models.user import User
 
-# ── Helpers ───────────────────────────────────────────────────────
-
-
-def _mock_oauth(userinfo: dict) -> MagicMock:
-    """Build a mock OAuth object that returns *userinfo* on callback."""
-    m = MagicMock()
-    m.google.authorize_redirect = AsyncMock(
-        return_value=RedirectResponse(
-            url="https://accounts.google.com/o/oauth2/auth?mock=1", status_code=302
-        )
-    )
-    m.google.authorize_access_token = AsyncMock(
-        return_value={"userinfo": userinfo, "access_token": "tok"}
-    )
-    return m
+# Re-use shared fixtures and helpers from conftest.py
+from tests.conftest import _login, _mock_oauth  # noqa: E402
 
 
 def _patch_auth_settings():
@@ -55,91 +30,6 @@ def _patch_auth_settings():
         google_client_secret="test-client-secret",
         google_redirect_uri="http://localhost/auth/google/callback",
     )
-
-
-def _login(anon_client: TestClient, userinfo: dict) -> None:
-    """Drive the OAuth callback to log in a user.  Verifies via session cookie."""
-    oauth = _mock_oauth(userinfo)
-    with patch.object(auth_mod, "_ensure_oauth", return_value=oauth):
-        anon_client.get("/auth/google/callback")
-    assert anon_client.cookies.get("session") is not None
-
-
-# ── Fixtures ──────────────────────────────────────────────────────
-
-
-@pytest.fixture()
-def _db(tmp_db_path):
-    """Yield (engine, session_factory) with all tables created."""
-    engine = create_engine(
-        f"sqlite:///{tmp_db_path.as_posix()}",
-        connect_args={"check_same_thread": False},
-        future=True,
-    )
-    Base.metadata.create_all(engine)
-    factory = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
-    yield engine, factory
-    engine.dispose()
-
-
-@pytest.fixture()
-def anon_client(_db):
-    """TestClient with real session auth — no get_current_user override.
-
-    HTTPSRedirectMiddleware is removed so the TestClient (which speaks HTTP
-    internally) can exercise session-based auth without 307 redirects.
-    The auth callback's session_scope is also patched to use the test DB.
-    """
-    _, Sess = _db
-
-    def _get_db():
-        db = Sess()
-        try:
-            yield db
-        finally:
-            db.close()
-
-    @contextmanager
-    def _session_scope() -> Generator:
-        db = Sess()
-        try:
-            yield db
-            db.commit()
-        except Exception:
-            db.rollback()
-            raise
-        finally:
-            db.close()
-
-    app.dependency_overrides[get_db] = _get_db
-
-    # Strip HTTPSRedirectMiddleware so HTTP requests reach the handlers.
-    # Also set SessionMiddleware to https_only=False so the TestClient
-    # (which speaks HTTP) can send/receive the session cookie.
-    saved_middleware = list(app.user_middleware)
-    saved_stack = app.middleware_stack
-    new_user_middleware = []
-    for m in app.user_middleware:
-        if m.cls is HTTPSRedirectMiddleware:
-            continue
-        if m.cls is SessionMiddleware:
-            m.kwargs["https_only"] = False
-        new_user_middleware.append(m)
-    app.user_middleware = new_user_middleware
-    app.middleware_stack = None
-
-    # Patch session_scope inside auth module to use the test DB.
-    scope_patcher = patch.object(auth_mod, "session_scope", _session_scope)
-    scope_patcher.start()
-
-    try:
-        with TestClient(app, raise_server_exceptions=False) as c:
-            yield c
-    finally:
-        scope_patcher.stop()
-        app.user_middleware = saved_middleware
-        app.middleware_stack = saved_stack
-        app.dependency_overrides.pop(get_db, None)
 
 
 # ── 1. Anonymous access ──────────────────────────────────────────

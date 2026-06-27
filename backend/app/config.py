@@ -22,6 +22,7 @@ _LEGACY_ENV_MAP: dict[str, str] = {
     "CURRENCY_SYMBOL": "currency_symbol",
     "FORECAST_HISTORY_DAYS": "forecast_history_days",
     "FORECAST_CACHE_TTL_SECONDS": "forecast_cache_ttl_seconds",
+    "PRIVACY_EMAIL": "privacy_email",
 }
 
 
@@ -125,6 +126,22 @@ class Settings(BaseSettings):
     google_client_id: str | None = Field(default=None)
     google_client_secret: str | None = Field(default=None)
     google_redirect_uri: str | None = Field(default=None)
+
+    # Contact
+    privacy_email: str = Field(
+        default="",
+        description="Email for privacy inquiries and data subject requests. Required in production.",
+    )
+
+    # Privacy policy metadata
+    hosting_region: str = Field(
+        default="US East (Ohio) / Singapore",
+        description="Deployment region for the hosting provider — surfaced in the privacy policy.",
+    )
+    database_region: str = Field(
+        default="US East (Ohio) / Singapore",
+        description="Deployment region for the database provider — surfaced in the privacy policy.",
+    )
 
     # Security
     allowed_hosts: str = Field(

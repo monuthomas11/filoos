@@ -39,3 +39,9 @@ from app.crud.transaction import (  # noqa: E402, F401
     update_transaction,
     update_transfer_pair,
 )
+
+# Phase 6
+from app.crud.user import (  # noqa: E402, F401
+    delete_user_by_id,
+    get_all_user_data,
+)

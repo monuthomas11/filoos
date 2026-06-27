@@ -32,7 +32,9 @@ class Category(Base):
     )
     color: Mapped[str | None] = mapped_column(String(7), nullable=True)
     icon: Mapped[str | None] = mapped_column(String(50), nullable=True)
-    parent_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"), nullable=True)
+    parent_id: Mapped[int | None] = mapped_column(
+        ForeignKey("categories.id", ondelete="CASCADE"), nullable=True
+    )
 
     transactions = relationship(
         "Transaction", back_populates="category", cascade="all, delete-orphan"

@@ -1,0 +1,84 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="mx-auto max-w-3xl space-y-10">
+  <div class="space-y-2">
+    <h1 class="text-3xl font-bold tracking-tight text-neutral-900 dark:text-white">Terms of Service</h1>
+    <p class="text-sm text-neutral-500 dark:text-neutral-400">
+      Last updated: 2026-06-27 &middot; Applies to {{ app_name }}
+    </p>
+  </div>
+
+  <section class="space-y-4">
+    <h2 class="text-xl font-semibold text-neutral-900 dark:text-white">1. Acceptance of Terms</h2>
+    <p class="text-neutral-700 dark:text-neutral-300 leading-relaxed">
+      By accessing or using {{ app_name }} (the &ldquo;Service&rdquo;), you agree to be bound by these Terms of Service.
+      If you do not agree, do not use the Service.
+    </p>
+  </section>
+
+  <section class="space-y-4">
+    <h2 class="text-xl font-semibold text-neutral-900 dark:text-white">2. Description of Service</h2>
+    <p class="text-neutral-700 dark:text-neutral-300 leading-relaxed">
+      {{ app_name }} is a personal expense-tracking application. You may create accounts, record transactions,
+      set budgets, and track recurring expenses. The Service is provided &ldquo;as is&rdquo; and &ldquo;as available.&rdquo;
+    </p>
+  </section>
+
+  <section class="space-y-4">
+    <h2 class="text-xl font-semibold text-neutral-900 dark:text-white">3. User Accounts</h2>
+    <p class="text-neutral-700 dark:text-neutral-300 leading-relaxed">
+      You sign in using Google OAuth. You are responsible for safeguarding your Google account credentials.
+      You are responsible for all activity under your account.
+    </p>
+  </section>
+
+  <section class="space-y-4">
+    <h2 class="text-xl font-semibold text-neutral-900 dark:text-white">4. Acceptable Use</h2>
+    <p class="text-neutral-700 dark:text-neutral-300 leading-relaxed">
+      You agree not to misuse the Service, attempt unauthorized access, or use the Service for any
+      unlawful purpose. We reserve the right to suspend or terminate accounts that violate these terms.
+    </p>
+  </section>
+
+  <section class="space-y-4">
+    <h2 class="text-xl font-semibold text-neutral-900 dark:text-white">5. Data and Privacy</h2>
+    <p class="text-neutral-700 dark:text-neutral-300 leading-relaxed">
+      Our collection and use of personal data is governed by our
+      <a href="/privacy" class="font-medium text-accent-600 hover:underline dark:text-accent-400">Privacy Policy</a>.
+    </p>
+  </section>
+
+  <section class="space-y-4">
+    <h2 class="text-xl font-semibold text-neutral-900 dark:text-white">6. Data Export and Account Deletion</h2>
+    <p class="text-neutral-700 dark:text-neutral-300 leading-relaxed">
+      You may export your data or delete your account at any time. To export, use the JSON API endpoint
+      available to authenticated users. To delete, contact
+      <a href="mailto:{{ privacy_email }}" class="font-medium text-accent-600 hover:underline dark:text-accent-400">{{ privacy_email }}</a>.
+    </p>
+  </section>
+
+  <section class="space-y-4">
+    <h2 class="text-xl font-semibold text-neutral-900 dark:text-white">7. Limitation of Liability</h2>
+    <p class="text-neutral-700 dark:text-neutral-300 leading-relaxed">
+      To the fullest extent permitted by law, the Service and its operators shall not be liable for any
+      indirect, incidental, or consequential damages arising from your use of the Service.
+    </p>
+  </section>
+
+  <section class="space-y-4">
+    <h2 class="text-xl font-semibold text-neutral-900 dark:text-white">8. Changes to These Terms</h2>
+    <p class="text-neutral-700 dark:text-neutral-300 leading-relaxed">
+      We may update these Terms from time to time. Continued use of the Service after changes
+      constitutes acceptance of the new Terms.
+    </p>
+  </section>
+
+  <section class="space-y-4">
+    <h2 class="text-xl font-semibold text-neutral-900 dark:text-white">9. Contact</h2>
+    <p>
+      <a href="mailto:{{ privacy_email }}" class="font-medium text-accent-600 hover:underline dark:text-accent-400">{{ privacy_email }}</a>
+    </p>
+  </section>
+</div>
+{% endblock %}

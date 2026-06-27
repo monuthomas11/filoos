@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="mx-auto max-w-2xl space-y-10">
+  <div>
+    <h1 class="text-2xl font-bold tracking-tight text-neutral-900 dark:text-white">Settings</h1>
+    <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">Manage your account and data.</p>
+  </div>
+
+  <section class="space-y-4">
+    <h2 class="text-lg font-semibold text-neutral-900 dark:text-white">Data Export</h2>
+    <p class="text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed">
+      Download all your accounts, transactions, categories, budgets, and recurring rules as a JSON file.
+      This is your <strong>right to data portability</strong> under the GDPR (Art. 20).
+    </p>
+    <a
+      href="/api/account/export"
+      class="inline-flex items-center gap-2 rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-accent-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download my data
+    </a>
+  </section>
+
+  <hr class="border-neutral-200 dark:border-neutral-800">
+
+  <section class="space-y-4">
+    <h2 class="text-lg font-semibold text-neutral-900 dark:text-white">Delete Account</h2>
+    <p class="text-sm text-neutral-700 dark:text-neutral-300 leading-relaxed">
+      Permanently delete your account and all associated data. This action is
+      <strong class="text-negative-600">irreversible</strong> and cannot be undone.
+    </p>
+    <a
+      href="/account/delete"
+      class="inline-flex items-center gap-2 rounded-lg border border-negative-300 bg-white px-4 py-2 text-sm font-medium text-negative-700 shadow-sm hover:bg-negative-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-negative-600 dark:border-negative-700 dark:bg-transparent dark:text-negative-400 dark:hover:bg-negative-950"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+      Delete account
+    </a>
+  </section>
+</div>
+{% endblock %}
