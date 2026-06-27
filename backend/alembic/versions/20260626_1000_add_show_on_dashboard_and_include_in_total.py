@@ -40,7 +40,7 @@ def upgrade() -> None:
             )
 
     op.execute(
-        "UPDATE accounts SET opening_balance = 0 WHERE type = 'credit_card' AND opening_balance > 0"
+        "UPDATE accounts SET opening_balance = 0 WHERE type = 'CREDIT_CARD' AND opening_balance > 0"
     )
 
 
