@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from fastapi import Depends, HTTPException, Request
-from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db  # noqa: F401 — re-export for router imports

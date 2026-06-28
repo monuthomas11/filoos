@@ -400,7 +400,6 @@ def test_balance_trend_with_transactions(db_session: Session):
     uid = _seed_user(db_session)
     _seed_account(db_session, uid, "Bank", AccountType.BANK, "50000")
 
-    today = datetime.date.today()
     _seed_tx(db_session, uid, 1, "-1000", TransactionType.EXPENSE, "Rent", days_ago=2)
     _seed_tx(db_session, uid, 1, "3000", TransactionType.INCOME, "Salary", days_ago=5)
 

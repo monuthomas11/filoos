@@ -40,6 +40,10 @@ data/*.db-shm
 
 # --- Agent / IDE config ---
 .agents/
+.codex/
+.github/
+.impeccable/
+.opencode/
 
 # --- Editor / OS ---
 .vscode/
@@ -63,3 +67,14 @@ findings.md
 review-comments.txt
 Plan_reporting.md
 Plan_trans.md
+
+# --- Backend test files & local configs ---
+backend/tests/
+backend/scripts/
+backend/*.md
+backend/.env*
+backend/.pytest_cache/
+backend/.coverage*
+backend/htmlcov/
+backend/.mypy_cache/
+backend/.ruff_cache/
