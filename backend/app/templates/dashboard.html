@@ -1,10 +1,12 @@
 {% extends "base.html" %}
 
 {% block content %}
-<section class="space-y-6">
-  <div class="flex flex-col items-center gap-4 md:flex-row md:justify-end">
-    <div class="flex items-center gap-3">
-      <select id="period-select" class="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300">
+<section class="space-y-5 sm:space-y-6">
+  <!-- Toolbar header -->
+  <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <h1 class="text-xl font-semibold tracking-tight text-neutral-900 dark:text-neutral-100 sm:text-2xl">Dashboard</h1>
+    <div class="flex w-full items-center gap-3 sm:w-auto">
+      <select id="period-select" class="flex-1 rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-300 sm:flex-none">
         <option value="current_month">Current month</option>
         <option value="previous_month">Previous month</option>
         <option value="last_3_months">Last 3 months</option>
@@ -13,7 +15,7 @@
       </select>
       <a
         href="/transactions/new?from=/"
-        class="inline-flex items-center gap-1.5 rounded-lg bg-accent-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-accent-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600"
+        class="inline-flex items-center gap-1.5 rounded-xl bg-accent-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-accent-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600"
       >
         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
         Add transaction
@@ -21,203 +23,225 @@
     </div>
   </div>
 
-  <!-- KPI row -->
-  <div class="space-y-2 sm:space-y-4">
-    <div class="grid grid-cols-3 gap-2 sm:gap-4 lg:grid-cols-4">
-      <div class="col-span-2 rounded-lg border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900 sm:p-5 lg:col-span-3">
-        <p class="text-[10px] uppercase tracking-wide text-neutral-500 sm:text-xs">Total balance</p>
-        <p class="mt-1.5 text-xl font-semibold text-neutral-900 dark:text-neutral-100 sm:mt-2 sm:text-2xl">
-          {{ currency_symbol }}{{ total_balance|string }}
-        </p>
-        <p class="mt-0.5 text-[10px] text-neutral-400 sm:mt-1 sm:text-xs">{{ accounts|length }} account(s)</p>
-      </div>
-      <div class="rounded-lg border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900 sm:p-5">
-        <p id="kpi-savings-label" class="text-[10px] uppercase tracking-wide text-neutral-500 sm:text-xs">Savings</p>
-        <p id="kpi-savings-rate" class="mt-1.5 text-lg font-semibold text-neutral-900 dark:text-neutral-100 sm:mt-2 sm:text-2xl">—</p>
-      </div>
+  <!-- Hero zone: large balance card + KPI cluster -->
+  <div class="grid grid-cols-1 gap-3 lg:gap-4 lg:grid-cols-3">
+    <div class="relative overflow-hidden rounded-xl bg-accent-600 p-5 text-white lg:col-span-2">
+      <div class="absolute -bottom-6 -right-6 h-36 w-36 rounded-full bg-white/[0.08]"></div>
+      <div class="absolute -bottom-3 -right-3 h-16 w-16 rounded-full bg-white/[0.06]"></div>
+      <p class="text-sm font-medium text-accent-100">Your balance</p>
+      <p class="mt-1 text-3xl font-bold tracking-tight sm:text-4xl">
+        {{ currency_symbol }}{{ total_balance|string }}
+      </p>
+      <p id="hero-net-change" class="mt-2 flex items-center gap-1 text-sm text-accent-100">
+        <span class="inline-flex items-center gap-1">
+          <span id="hero-net-arrow" class="hidden"></span>
+          <span id="hero-net-text">—</span>
+        </span>
+        <span id="hero-net-period" class="opacity-70">this month</span>
+      </p>
     </div>
-    <div class="grid grid-cols-2 gap-2 sm:gap-4">
-      <div class="rounded-lg border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900 sm:p-5">
-        <p id="kpi-income-label" class="text-[10px] uppercase tracking-wide text-neutral-500 sm:text-xs">Income</p>
-        <p id="kpi-income" class="mt-1.5 text-lg font-semibold text-positive-600 sm:mt-2 sm:text-2xl">—</p>
+    <div class="grid grid-cols-3 gap-2 lg:grid-cols-1 lg:gap-3">
+      <div class="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900 sm:p-4 lg:p-5">
+        <p class="text-[10px] font-medium text-neutral-500 sm:text-xs">Income</p>
+        <p id="kpi-income" class="mt-0.5 text-sm font-semibold text-positive-600 sm:mt-1 sm:text-xl">—</p>
       </div>
-      <div class="rounded-lg border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900 sm:p-5">
-        <p id="kpi-expense-label" class="text-[10px] uppercase tracking-wide text-neutral-500 sm:text-xs">Expense</p>
-        <p id="kpi-expense" class="mt-1.5 text-lg font-semibold text-negative-600 sm:mt-2 sm:text-2xl">—</p>
+      <div class="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900 sm:p-4 lg:p-5">
+        <p class="text-[10px] font-medium text-neutral-500 sm:text-xs">Expense</p>
+        <p id="kpi-expense" class="mt-0.5 text-sm font-semibold text-negative-600 sm:mt-1 sm:text-xl">—</p>
+      </div>
+      <div class="rounded-xl border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900 sm:p-4 lg:p-5">
+        <p class="text-[10px] font-medium text-neutral-500 sm:text-xs" title="Percentage of income saved this period">Savings</p>
+        <p id="kpi-savings-rate" class="mt-0.5 text-sm font-semibold text-neutral-900 dark:text-neutral-100 sm:mt-1 sm:text-xl" title="Add income to see your savings rate">—</p>
       </div>
     </div>
   </div>
 
-  <!-- Account cards -->
+  <!-- Accounts -->
   {% if accounts %}
   <div>
-    <h2 class="mb-3 text-sm font-semibold text-neutral-600 dark:text-neutral-400">Accounts</h2>
-    <div class="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-3" id="dashboard-account-list">
+    <h2 class="mb-3 text-xs font-semibold tracking-wide text-neutral-500 dark:text-neutral-400 uppercase">Accounts</h2>
+    <div class="scroll-fade-right flex items-center gap-3 overflow-x-auto pb-1" id="dashboard-account-list">
       {% for account in accounts %}
         {% with balance = balances[account.id] %}
-        <div
-          id="dash-card-{{ account.id }}"
-          class="rounded-lg border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900 sm:p-4"
-        >
-          <div class="flex items-center gap-2 sm:gap-3">
-            <span
-              class="inline-flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-white sm:h-10 sm:w-10 sm:text-lg"
-              style="background-color: {{ account.color or '#4f46e5' }}"
-            >{{ account.name[:1] }}</span>
-            <div class="min-w-0 flex-1">
-              <p class="truncate text-sm font-semibold text-neutral-900 dark:text-neutral-100 sm:text-base">{{ account.name }}</p>
-              <p class="text-[10px] text-neutral-500 dark:text-neutral-400 sm:text-xs">{{ account.type.value.replace('_', ' ').title() }}</p>
-            </div>
-          </div>
-          <p class="mt-2 text-base font-semibold tracking-tight text-neutral-900 dark:text-neutral-100 sm:mt-3 sm:text-lg">
-            {{ currency_symbol }}{{ balance|string }}
-          </p>
+        <div class="flex shrink-0 items-center gap-2.5 rounded-xl border border-neutral-200 bg-white px-4 py-2.5 transition-shadow hover:shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+          <span
+            class="h-3 w-3 shrink-0 rounded-full"
+            style="background-color: {{ account.color or '#4f46e5' }}"
+            aria-hidden="true"
+          ></span>
+          <span class="truncate text-sm font-medium text-neutral-700 dark:text-neutral-300">{{ account.name }}</span>
+          <span class="text-sm font-semibold text-neutral-900 dark:text-neutral-100">{{ currency_symbol }}{{ balance|string }}</span>
         </div>
         {% endwith %}
       {% endfor %}
     </div>
   </div>
   {% else %}
-  <div class="rounded-lg border border-dashed border-neutral-300 p-10 text-center dark:border-neutral-700">
-    <p class="text-neutral-500 dark:text-neutral-400">No accounts yet.</p>
-    <a href="/accounts/new" class="mt-2 inline-block text-sm font-medium text-accent-600 hover:text-accent-700">Add your first account</a>
+  <div class="rounded-xl border border-dashed border-neutral-300 px-6 py-10 text-center dark:border-neutral-700">
+    <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-accent-100 dark:bg-accent-900/30">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-accent-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z"/></svg>
+    </div>
+    <p class="mt-3 text-sm font-medium text-neutral-700 dark:text-neutral-300">Your accounts will live here</p>
+    <p class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">Track balances across bank accounts, cash, and more.</p>
+    <a href="/accounts/new" class="mt-4 inline-flex items-center gap-1.5 rounded-xl bg-accent-600 px-4 py-2 text-sm font-medium text-white hover:bg-accent-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      Add your first account
+    </a>
   </div>
   {% endif %}
 
-  <!-- Balance trend & projection -->
-  <div class="rounded-lg border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900 sm:p-5">
-    <div class="flex items-center justify-between">
-      <h2 class="text-xs font-semibold sm:text-sm">Balance Trend</h2>
-      <select id="horizon-select" class="rounded-lg border border-neutral-200 bg-white px-2 py-1 text-[10px] text-neutral-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400 sm:text-xs">
-        <option value="30">30 days</option>
-        <option value="60" selected>60 days</option>
-        <option value="90">90 days</option>
-      </select>
-    </div>
-    <div class="mt-1.5 flex items-baseline justify-between sm:mt-2">
-      <div>
-        <p class="text-[10px] text-neutral-500 sm:text-xs">This month</p>
-        <p id="balance-trend-amount" class="mt-0.5 text-lg font-semibold text-neutral-900 dark:text-neutral-100 sm:mt-1 sm:text-2xl">—</p>
+  <!-- Charts row: 2-col on lg -->
+  <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
+    <!-- Balance trend + projection + daily spending sparkline -->
+    <div class="rounded-xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900 lg:col-span-2">
+      <div class="flex items-center justify-between">
+        <h2 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Balance trend</h2>
+        <select id="horizon-select" class="rounded-lg border border-neutral-200 bg-white px-2 py-1 text-xs text-neutral-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600 dark:border-neutral-800 dark:bg-neutral-900 dark:text-neutral-400">
+          <option value="30">30 days</option>
+          <option value="60" selected>60 days</option>
+        </select>
       </div>
-      <div class="text-right">
-        <p class="text-[10px] text-neutral-500 sm:text-xs">VS Previous Period</p>
-        <span id="balance-trend-badge" class="mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">—</span>
+      <div class="mt-2 flex items-baseline gap-3">
+        <p id="balance-trend-amount" class="text-xl font-bold text-neutral-900 dark:text-neutral-100 sm:text-2xl">—</p>
+        <span id="balance-trend-badge" class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">—</span>
+      </div>
+      <div class="relative mt-3 h-48 sm:h-56">
+        <canvas id="balance-trend-chart" role="img" aria-label="Balance trend and projection chart"></canvas>
+      </div>
+      <!-- Runway warning -->
+      <div id="runway-warning" class="mt-2 hidden" role="alert">
+        <span class="inline-flex items-center gap-1.5 rounded-lg bg-amber-50 px-3 py-1.5 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/></svg>
+          <span id="runway-text"></span>
+        </span>
+      </div>
+      <!-- Daily spending sparkline -->
+      <div class="mt-4 border-t border-neutral-100 pt-4 dark:border-neutral-800">
+        <div class="flex items-baseline justify-between">
+          <h3 class="text-xs font-medium text-neutral-500">Daily spending</h3>
+          <span class="text-[10px] text-neutral-400">Last 30 days</span>
+        </div>
+        <div class="relative mt-2 h-14 sm:h-16">
+          <canvas id="spending-chart" role="img" aria-label="Daily spending bar chart"></canvas>
+        </div>
       </div>
     </div>
-    <!-- Runway warning -->
-    <div id="runway-warning" class="mt-2 hidden" role="alert">
-      <span class="inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700 dark:bg-amber-950 dark:text-amber-400">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/></svg>
-        <span id="runway-text"></span>
-      </span>
-    </div>
-    <div class="relative mt-2 h-40 sm:mt-4 sm:h-64">
-      <canvas id="balance-trend-chart" role="img" aria-label="Balance trend and projection chart"></canvas>
-    </div>
-  </div>
 
-  <!-- Chart row -->
-  <div class="grid grid-cols-1 gap-2 sm:gap-4 lg:grid-cols-3">
-    <div class="rounded-lg border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900 sm:p-5 lg:col-span-2">
-      <div class="flex items-baseline justify-between">
-        <h2 class="text-xs font-semibold sm:text-sm">Daily spending</h2>
-        <span class="text-[10px] text-neutral-400 sm:text-xs">Last 30 days</span>
-      </div>
-      <div class="relative mt-2 h-40 sm:mt-4 sm:h-64">
-        <canvas id="spending-chart" role="img" aria-label="Daily spending bar chart"></canvas>
-      </div>
-    </div>
-    <div class="rounded-lg border border-neutral-200 bg-white p-3 dark:border-neutral-800 dark:bg-neutral-900 sm:p-5">
-      <h2 class="text-xs font-semibold sm:text-sm">Category breakdown</h2>
-      <div class="relative mt-2 h-40 sm:mt-4 sm:h-64">
+    <!-- Category breakdown doughnut -->
+    <div class="rounded-xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
+      <h2 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100">By category</h2>
+      <div class="relative mt-3 h-48 sm:h-72">
         <canvas id="category-chart" role="img" aria-label="Category breakdown doughnut chart"></canvas>
       </div>
     </div>
   </div>
 
-  <!-- Budget progress -->
-  <div id="budget-section" class="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
-    <div class="flex items-baseline justify-between">
-      <h2 class="text-sm font-semibold">Budget progress</h2>
-      <a href="/budgets" class="text-xs font-medium text-accent-600 hover:text-accent-700">Manage</a>
-    </div>
-    <div id="budget-progress-container" class="mt-3 space-y-3">
-      <p class="text-sm text-neutral-400">Loading…</p>
-    </div>
-  </div>
-
-  <!-- Recent transactions -->
-  <div class="rounded-lg border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
-    <div class="flex items-baseline justify-between">
-      <h2 class="text-sm font-semibold">Recent transactions</h2>
-      <a href="/transactions" class="text-xs font-medium text-accent-600 hover:text-accent-700">View all</a>
-    </div>
-    {% if recent_transactions %}
-    <div class="mt-3 space-y-2">
-      {% for tx in recent_transactions %}
-      <div class="flex items-center gap-3">
-        <span class="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-xs font-bold
-          {% if tx.type.value == 'income' %}
-            bg-positive-500/10 text-positive-600
-          {% elif tx.type.value == 'transfer' %}
-            bg-accent-500/10 text-accent-600
-          {% else %}
-            bg-negative-500/10 text-negative-600
-          {% endif %}
-        ">
-          {% if tx.type.value == 'income' %}&#8593;{% elif tx.type.value == 'transfer' %}&#8644;{% else %}&#8595;{% endif %}
-        </span>
-        <div class="min-w-0 flex-1">
-          <p class="truncate text-sm text-neutral-900 dark:text-neutral-100">{{ tx.description }}</p>
-          <p class="text-xs text-neutral-400">{{ tx.account.name if tx.account else '' }} · {{ tx.date.isoformat() }}</p>
-        </div>
-        <p class="shrink-0 text-sm font-semibold tracking-tight
-          {% if tx.amount > 0 %}
-            text-positive-600
-          {% elif tx.amount < 0 %}
-            text-negative-600
-          {% else %}
-            text-neutral-500
-          {% endif %}
-        ">
-          {{ currency_symbol }}{{ tx.amount|string }}
-        </p>
+  <!-- Budget + Recent transactions: 2-col on lg -->
+  <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+    <!-- Budget progress -->
+    <div class="rounded-xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
+      <div class="flex items-baseline justify-between">
+        <h2 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Budget progress</h2>
+        <a href="/budgets" class="text-xs font-medium text-accent-600 hover:text-accent-700">Manage</a>
       </div>
-      {% endfor %}
+      <div id="budget-progress-container" class="mt-4 space-y-4">
+        <div class="flex items-center gap-3">
+          <span class="h-2.5 w-2.5 shrink-0 rounded-full bg-neutral-200 dark:bg-neutral-700"></span>
+          <div class="flex flex-1 items-baseline justify-between gap-2">
+            <span class="h-3 w-20 rounded bg-neutral-100 dark:bg-neutral-800"></span>
+            <span class="h-3 w-24 rounded bg-neutral-100 dark:bg-neutral-800"></span>
+          </div>
+        </div>
+        <div class="h-2 w-full overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
+          <div class="h-full w-2/3 rounded-full bg-neutral-200 dark:bg-neutral-700"></div>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="h-2.5 w-2.5 shrink-0 rounded-full bg-neutral-200 dark:bg-neutral-700"></span>
+          <div class="flex flex-1 items-baseline justify-between gap-2">
+            <span class="h-3 w-16 rounded bg-neutral-100 dark:bg-neutral-800"></span>
+            <span class="h-3 w-28 rounded bg-neutral-100 dark:bg-neutral-800"></span>
+          </div>
+        </div>
+        <div class="h-2 w-full overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">
+          <div class="h-full w-1/3 rounded-full bg-neutral-200 dark:bg-neutral-700"></div>
+        </div>
+      </div>
     </div>
-    {% else %}
-    <div class="mt-4 flex h-20 items-center justify-center rounded-md border border-dashed border-neutral-200 text-sm text-neutral-400 dark:border-neutral-800">
-      No transactions yet.
+
+    <!-- Recent transactions -->
+    <div class="rounded-xl border border-neutral-200 bg-white p-5 dark:border-neutral-800 dark:bg-neutral-900">
+      <div class="flex items-baseline justify-between">
+        <h2 class="text-sm font-semibold text-neutral-900 dark:text-neutral-100">Recent transactions</h2>
+        <a href="/transactions" class="text-xs font-medium text-accent-600 hover:text-accent-700">View all</a>
+      </div>
+      {% if recent_transactions %}
+      <div class="mt-3 space-y-1">
+        {% for tx in recent_transactions %}
+        <div class="flex items-center gap-3 rounded-lg px-2 py-2.5 transition-colors hover:bg-neutral-50 dark:hover:bg-neutral-800/50">
+          <span class="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-sm font-bold
+            {% if tx.type.value == 'income' %}
+              bg-positive-500/10 text-positive-600
+            {% elif tx.type.value == 'transfer' %}
+              bg-accent-500/10 text-accent-600
+            {% else %}
+              bg-negative-500/10 text-negative-600
+            {% endif %}
+          ">
+            {% if tx.type.value == 'income' %}&#8593;{% elif tx.type.value == 'transfer' %}&#8644;{% else %}&#8595;{% endif %}
+          </span>
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-sm font-medium text-neutral-900 dark:text-neutral-100">{{ tx.description }}</p>
+            <p class="text-xs text-neutral-400">{{ tx.account.name if tx.account else '' }}{{ ' · ' if tx.account else '' }}{{ tx.date.isoformat() }}</p>
+          </div>
+          <p class="shrink-0 text-sm font-semibold tracking-tight
+            {% if tx.amount > 0 %}
+              text-positive-600
+            {% elif tx.amount < 0 %}
+              text-negative-600
+            {% else %}
+              text-neutral-500
+            {% endif %}
+          ">
+            {{ currency_symbol }}{{ tx.amount|string }}
+          </p>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="mt-4 flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-neutral-200 px-4 py-6 text-center dark:border-neutral-800">
+        <p class="text-sm text-neutral-400">No transactions yet</p>
+        <a href="/transactions/new?from=/" class="inline-flex items-center gap-1 rounded-lg bg-accent-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          Record your first transaction
+        </a>
+      </div>
+      {% endif %}
     </div>
-    {% endif %}
   </div>
-
-
 </section>
 {% endblock %}
 
 {% block scripts %}
-<script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
+  <script>
+/* global Chart */
+// Global chart instances (declared before DOMContentLoaded so they exist on first use)
+var balanceTrendChart, spendingChart, categoryChart;
+
 document.addEventListener('DOMContentLoaded', function () {
   var symbol = '{{ currency_symbol }}';
   var periodSelect = document.getElementById('period-select');
 
   // --- Period helpers ---
-  var periodLabels = {
-    current_month: 'This month',
-    previous_month: 'Last month',
-    last_3_months: 'Last 3 months',
-    this_year: 'This year',
-    all_time: 'All time',
-  };
-
-  function updateKpiLabels(period) {
-    var incomeLabel = document.getElementById('kpi-income-label');
-    var expenseLabel = document.getElementById('kpi-expense-label');
-    var savingsLabel = document.getElementById('kpi-savings-label');
-    if (incomeLabel) incomeLabel.textContent = 'Income';
-    if (expenseLabel) expenseLabel.textContent = 'Expense';
-    if (savingsLabel) savingsLabel.textContent = 'Savings rate';
+  function getPeriodLabel(period) {
+    var labels = {
+      current_month: 'this month',
+      previous_month: 'last month',
+      last_3_months: 'last 3 months',
+      this_year: 'this year',
+      all_time: 'all time',
+    };
+    return labels[period] || 'this month';
   }
 
   function getApiParams(period) {
@@ -261,25 +285,65 @@ document.addEventListener('DOMContentLoaded', function () {
     }).join('&');
   }
 
-  // Chart instances (for destroy/re-create)
-  var spendingChart = null;
-  var categoryChart = null;
-  var balanceTrendChart = null;
+  // --- Shared dashboard utilities ---
+  function setErrorState(elementId, message, onRetry) {
+    var el = document.getElementById(elementId);
+    if (!el) return;
+    var container = el.closest('[data-error-wrap]') || el.parentNode;
+    // Note: data-error-wrap can be added on the parent container when built
+    // For budget-progress-container (generated), we insert a simple error block.
+    container.innerHTML = '<div class="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-neutral-200 bg-neutral-50 px-4 py-6 text-center dark:border-neutral-700 dark:bg-neutral-800/50" data-error="true">' +
+      '<p class="text-sm text-neutral-500 dark:text-neutral-400">' + (message || 'Failed to load') + '</p>' +
+      '<button type="button" class="mt-1 inline-flex items-center gap-1 rounded-lg bg-accent-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600" data-retry>Retry</button>' +
+    '</div>';
+    if (onRetry) {
+      var btn = container.querySelector('[data-retry]');
+      if (btn) btn.addEventListener('click', function () { onRetry(); });
+    }
+  }
 
-  // --- Balance trend + projection combined chart ---
+  function clearErrorState(elementId) {
+    var el = document.getElementById(elementId);
+    if (!el) return;
+    var wrap = el.closest('[data-error-wrap]');
+    if (wrap) {
+      // If it was wrapped specifically, restore the original structure
+      // For our purposes, we just remove the error block and let the caller re-render
+      var err = wrap.querySelector('[data-error]');
+      if (err) err.remove();
+    }
+  }
+
+  function showLoadingMessage(elementId, text) {
+    var el = document.getElementById(elementId);
+    if (el) el.textContent = text || 'Loading…';
+  }
+
+  // Report fetch errors to console; UI handled by callers
+  function logFetchError(context, err) {
+    console.error('[' + context + '] fetch error:', err);
+  }
+
+  // Return chart grid color that matches current theme
+  function getChartGridColor() {
+    return document.documentElement.classList.contains('dark') ? '#262626' : '#e5e5e5';
+  }
+
+  // --- End shared utilities ---
+
+  // --- Balance trend + projection ---
   var horizonSelect = document.getElementById('horizon-select');
 
   function loadBalanceTrend() {
     var horizon = horizonSelect ? horizonSelect.value : '60';
     Promise.all([
-      fetch('/api/dashboard/balance-trend').then(function (r) { return r.json(); }),
-      fetch('/api/predictions/balance?horizon=' + horizon).then(function (r) { return r.json(); }),
+      fetch('/api/dashboard/balance-trend', { credentials: 'same-origin' }).then(function (r) { return r.json(); }),
+      fetch('/api/predictions/balance?horizon=' + horizon, { credentials: 'same-origin' }).then(function (r) { return r.json(); }),
     ])
       .then(function (results) {
         var trendRes = results[0];
         var projRes = results[1];
 
-        // Update KPI elements
         var amountEl = document.getElementById('balance-trend-amount');
         var badgeEl = document.getElementById('balance-trend-badge');
         if (amountEl) amountEl.textContent = symbol + trendRes.current_balance;
@@ -287,10 +351,10 @@ document.addEventListener('DOMContentLoaded', function () {
           var pct = trendRes.change_pct;
           var isPositive = pct >= 0;
           badgeEl.textContent = (isPositive ? '+' : '') + pct + '%';
-          badgeEl.className = 'mt-1 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium '
+          badgeEl.className = 'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium '
             + (isPositive
-              ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-400'
-              : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-400');
+              ? 'bg-positive-500/10 text-positive-600'
+              : 'bg-negative-500/10 text-negative-600');
         }
 
         // Runway warning
@@ -310,36 +374,29 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!ctx) return;
         if (balanceTrendChart) balanceTrendChart.destroy();
 
-        // Build combined labels and datasets
         var trendData = trendRes.series || [];
         var projData = projRes.projections || [];
 
-        // Create a unified label list (trend dates + projection dates)
         var labelSet = {};
         trendData.forEach(function (d) { labelSet[d.date] = true; });
         projData.forEach(function (d) { labelSet[d.date] = true; });
         var allDates = Object.keys(labelSet).sort();
         var labels = allDates.map(function (d) { return d.slice(5); });
 
-        // Map trend data by date
         var trendMap = {};
         trendData.forEach(function (d) { trendMap[d.date] = parseFloat(d.balance); });
 
-        // Map projection data by date
         var projMap = {};
         projData.forEach(function (d) { projMap[d.date] = parseFloat(d.balance); });
 
-        // Build trend dataset (solid line, null for projection-only dates)
         var trendValues = allDates.map(function (d) {
           return d in trendMap ? trendMap[d] : null;
         });
 
-        // Build projection dataset (dotted line, starts from last trend point)
         var lastTrendDate = trendData.length ? trendData[trendData.length - 1].date : null;
         var lastTrendBal = lastTrendDate ? trendMap[lastTrendDate] : null;
         var projValues = allDates.map(function (d) {
           if (d in projMap) {
-            // Bridge: if this is the last trend date, use trend value for continuity
             if (d === lastTrendDate) return lastTrendBal;
             return projMap[d];
           }
@@ -389,9 +446,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 labels: { font: { size: 11 }, boxWidth: 16, padding: 12, usePointStyle: true },
               },
               tooltip: {
-                filter: function (c) {
-                  return c.parsed.y !== null;
-                },
+                filter: function (c) { return c.parsed.y !== null; },
                 callbacks: {
                   label: function (c) {
                     if (c.parsed.y === null) return null;
@@ -406,7 +461,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 ticks: { maxTicksLimit: 15, font: { size: 11 } },
               },
               y: {
-                grid: { color: 'rgba(0,0,0,0.06)' },
+                grid: { color: getChartGridColor() },
                 ticks: {
                   font: { size: 11 },
                   callback: function (v) { return symbol + v; },
@@ -416,7 +471,16 @@ document.addEventListener('DOMContentLoaded', function () {
           },
         });
       })
-      .catch(function () {});
+      .catch(function (err) {
+        logFetchError('loadBalanceTrend', err);
+        var chartEl = document.getElementById('balance-trend-chart');
+        if (chartEl) {
+          chartEl.parentNode.innerHTML = '<div class="flex flex-col items-center justify-center gap-2 px-4 py-6 text-center">' +
+            '<p class="text-sm text-neutral-500 dark:text-neutral-400">Failed to load balance trend</p>' +
+            '<button type="button" class="mt-1 inline-flex items-center gap-1 rounded-lg bg-accent-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600" onclick="window.location.reload()">Retry</button>' +
+          '</div>';
+        }
+      });
   }
 
   if (horizonSelect) {
@@ -426,20 +490,55 @@ document.addEventListener('DOMContentLoaded', function () {
   function loadAllData(period) {
     var p = getApiParams(period);
     var qs = toQueryString(p);
+    var periodLabel = getPeriodLabel(period);
 
-    // --- KPI: monthly summary ---
-    fetch('/api/dashboard/summary' + qs)
+    // Period label in hero balance card
+    var heroPeriodEl = document.getElementById('hero-net-period');
+    if (heroPeriodEl) heroPeriodEl.textContent = periodLabel;
+
+    // --- KPI + hero net change ---
+    fetch('/api/dashboard/summary' + qs, { credentials: 'same-origin' })
       .then(function (r) { return r.json(); })
       .then(function (data) {
         document.getElementById('kpi-income').textContent = symbol + data.income;
         document.getElementById('kpi-expense').textContent = symbol + data.expense;
-        document.getElementById('kpi-savings-rate').textContent =
-          data.savings_rate !== null ? data.savings_rate + '%' : '—';
-      })
-      .catch(function () {});
+        var srEl = document.getElementById('kpi-savings-rate');
+        if (srEl) {
+          if (data.savings_rate !== null) {
+            srEl.textContent = data.savings_rate + '%';
+            srEl.title = 'Savings rate of income';
+          } else {
+            srEl.textContent = '—';
+            srEl.title = parseFloat(data.income) > 0 ? 'Savings rate not available' : 'Add income to see your savings rate';
+          }
+        }
 
-    // --- Daily spending bar chart ---
-    fetch('/api/dashboard/spending' + qs)
+        // Hero net change with directional arrow
+        var net = parseFloat(data.net);
+        var netEl = document.getElementById('hero-net-text');
+        var arrowEl = document.getElementById('hero-net-arrow');
+        if (netEl) {
+          if (!isNaN(net)) {
+            var prefix = net >= 0 ? '+' : '';
+            netEl.textContent = prefix + symbol + net.toFixed(2);
+            if (arrowEl) {
+              arrowEl.className = 'inline-flex';
+              arrowEl.innerHTML = net >= 0
+                ? '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg>'
+                : '<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>';
+            }
+          } else {
+            netEl.textContent = '—';
+          }
+        }
+      })
+      .catch(function (err) {
+        logFetchError('dashboardSummary', err);
+        setErrorState('kpi-income', 'Failed to load summary', function () { loadAllData(periodSelect ? periodSelect.value : 'current_month'); });
+      });
+
+    // --- Daily spending sparkline ---
+    fetch('/api/dashboard/spending' + qs, { credentials: 'same-origin' })
       .then(function (r) { return r.json(); })
       .then(function (res) {
         var data = res.data;
@@ -454,8 +553,8 @@ document.addEventListener('DOMContentLoaded', function () {
             datasets: [{
               label: 'Spending',
               data: data.map(function (d) { return parseFloat(d.amount); }),
-              backgroundColor: window.FF_COLORS.accent,
-              borderRadius: 4,
+              backgroundColor: window.FF_COLORS.accent + '60',
+              borderRadius: 2,
             }],
           },
           options: {
@@ -464,32 +563,37 @@ document.addEventListener('DOMContentLoaded', function () {
             plugins: {
               legend: { display: false },
               tooltip: {
+                mode: 'index',
+                intersect: false,
                 callbacks: {
+                  title: function (items) { return items[0].label; },
                   label: function (c) { return symbol + c.parsed.y.toFixed(2); },
                 },
               },
             },
             scales: {
-              x: {
-                grid: { display: false },
-                ticks: { maxTicksLimit: 15, font: { size: 11 } },
-              },
-              y: {
-                beginAtZero: true,
-                grid: { color: 'rgba(0,0,0,0.06)' },
-                ticks: {
-                  font: { size: 11 },
-                  callback: function (v) { return symbol + v; },
-                },
-              },
+              x: { display: false },
+              y: { display: false, beginAtZero: true },
+            },
+            elements: {
+              bar: { borderRadius: 2 },
             },
           },
         });
       })
-      .catch(function () {});
+      .catch(function (err) {
+        logFetchError('spendingChart', err);
+        var chartEl = document.getElementById('spending-chart');
+        if (chartEl) {
+          chartEl.parentNode.innerHTML = '<div class="flex flex-col items-center justify-center gap-2 px-4 py-6 text-center">' +
+            '<p class="text-xs text-neutral-500 dark:text-neutral-400">Spending data unavailable</p>' +
+            '<button type="button" class="mt-1 inline-flex items-center gap-1 rounded-lg bg-accent-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600" onclick="window.location.reload()">Retry</button>' +
+          '</div>';
+        }
+      });
 
-    // --- Category breakdown doughnut chart ---
-    fetch('/api/dashboard/category-breakdown' + qs)
+    // --- Category breakdown doughnut ---
+    fetch('/api/dashboard/category-breakdown' + qs, { credentials: 'same-origin' })
       .then(function (r) { return r.json(); })
       .then(function (res) {
         var data = res.data;
@@ -510,6 +614,7 @@ document.addEventListener('DOMContentLoaded', function () {
           options: {
             responsive: true,
             maintainAspectRatio: false,
+            cutout: '65%',
             plugins: {
               legend: {
                 position: 'bottom',
@@ -526,32 +631,43 @@ document.addEventListener('DOMContentLoaded', function () {
           },
         });
       })
-      .catch(function () {});
+      .catch(function (err) {
+        logFetchError('categoryChart', err);
+        var chartEl = document.getElementById('category-chart');
+        if (chartEl) {
+          chartEl.parentNode.innerHTML = '<div class="flex flex-col items-center justify-center gap-2 px-4 py-6 text-center">' +
+            '<p class="text-sm text-neutral-500 dark:text-neutral-400">Category data unavailable</p>' +
+            '<button type="button" class="mt-1 inline-flex items-center gap-1 rounded-lg bg-accent-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600" onclick="window.location.reload()">Retry</button>' +
+          '</div>';
+        }
+      });
 
     // --- Budget progress ---
-    fetch('/api/dashboard/budgets' + qs)
+    fetch('/api/dashboard/budgets' + qs, { credentials: 'same-origin' })
       .then(function (r) { return r.json(); })
       .then(function (res) {
         var data = res.data;
         var container = document.getElementById('budget-progress-container');
         if (!container) return;
         if (!data || !data.length) {
-          container.innerHTML = '<div class="flex h-16 items-center justify-center rounded-md border border-dashed border-neutral-200 text-sm text-neutral-400 dark:border-neutral-800"><a href="/budgets/new" class="font-medium text-accent-600 hover:text-accent-700">Set your first budget</a></div>';
+          container.innerHTML = '<div class="flex h-16 items-center justify-center rounded-xl border border-dashed border-neutral-200 text-sm text-neutral-400 dark:border-neutral-800"><a href="/budgets/new" class="font-medium text-accent-600 hover:text-accent-700">Set your first budget</a></div>';
           return;
         }
         var html = '';
         data.forEach(function (b) {
           var pct = Math.min(b.percentage, 100);
           var barColor = b.over_budget ? window.FF_COLORS.negative : (b.category_color || window.FF_COLORS.accent);
-          html += '<div class="space-y-1">';
-          html += '<div class="flex items-baseline justify-between text-sm">';
-          html += '<span class="text-neutral-700 dark:text-neutral-300">' + b.category_name + '</span>';
-          html += '<span class="' + (b.over_budget ? 'text-negative-600 font-semibold' : 'text-neutral-500') + '">' + symbol + b.spent + ' / ' + symbol + b.amount + '</span>';
+          html += '<div class="space-y-1.5">';
+          html += '<div class="flex items-center gap-3">';
+          html += '<span class="h-2.5 w-2.5 shrink-0 rounded-full" style="background-color:' + barColor + '" aria-hidden="true"></span>';
+          html += '<div class="flex flex-1 items-baseline justify-between gap-2">';
+          html += '<span class="truncate text-sm text-neutral-700 dark:text-neutral-300">' + b.category_name + '</span>';
+          html += '<span class="shrink-0 text-xs ' + (b.over_budget ? 'font-semibold text-negative-600' : 'text-neutral-500') + '">' + symbol + b.spent + ' / ' + symbol + b.amount + '</span>';
+          html += '</div></div>';
+          html += '<div class="h-2 w-full overflow-hidden rounded-full bg-neutral-100 dark:bg-neutral-800">';
+          html += '<div class="h-full rounded-full transition-all duration-300" style="width: ' + pct + '%; background-color: ' + barColor + '"></div>';
           html += '</div>';
-          html += '<div class="h-2 w-full overflow-hidden rounded-full bg-neutral-200 dark:bg-neutral-700">';
-          html += '<div class="h-full rounded-full transition-all" style="width: ' + pct + '%; background-color: ' + barColor + '"></div>';
-          html += '</div>';
-          html += '<p class="text-xs ' + (b.over_budget ? 'text-negative-600 font-medium' : 'text-neutral-400') + '">';
+          html += '<p class="text-xs ' + (b.over_budget ? 'font-medium text-negative-600' : 'text-neutral-400') + '">';
           if (b.over_budget) {
             html += 'Over budget by ' + symbol + b.remaining.replace('-', '');
           } else {
@@ -561,19 +677,26 @@ document.addEventListener('DOMContentLoaded', function () {
         });
         container.innerHTML = html;
       })
-      .catch(function () {});
+      .catch(function (err) {
+        logFetchError('budgetProgress', err);
+        var container = document.getElementById('budget-progress-container');
+        if (container) {
+          container.innerHTML = '<div class="flex flex-col items-center justify-center gap-2 rounded-xl bg-neutral-50 px-4 py-6 text-center dark:bg-neutral-800/50">' +
+            '<p class="text-sm text-neutral-500 dark:text-neutral-400">Failed to load budgets</p>' +
+            '<button type="button" class="mt-1 inline-flex items-center gap-1 rounded-lg bg-accent-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-600" onclick="window.location.reload()">Retry</button>' +
+          '</div>';
+        }
+      });
   }
 
   // Initial load
   var initialPeriod = periodSelect ? periodSelect.value : 'current_month';
-  updateKpiLabels(initialPeriod);
   loadAllData(initialPeriod);
   loadBalanceTrend();
 
   // Re-fetch on period change
   if (periodSelect) {
     periodSelect.addEventListener('change', function () {
-      updateKpiLabels(this.value);
       loadAllData(this.value);
     });
   }

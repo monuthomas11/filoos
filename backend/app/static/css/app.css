@@ -36,3 +36,13 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Horizontal scroll affordance: fades the right edge when content overflows */
+.scroll-fade-right {
+  -webkit-mask-image: linear-gradient(to right, black 80%, transparent 98%);
+  mask-image: linear-gradient(to right, black 80%, transparent 98%);
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+}
+

@@ -367,4 +367,4 @@ def test_dashboard_page_has_prediction_elements(client: TestClient):
     assert 'id="balance-trend-chart"' in response.text
     assert 'id="runway-warning"' in response.text
     assert 'id="runway-text"' in response.text
-    assert "Balance Trend" in response.text
+    assert "Balance trend" in response.text
