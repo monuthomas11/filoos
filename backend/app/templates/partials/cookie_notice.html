@@ -1,10 +1,19 @@
 {% if request.url.path != '/privacy' %}
-<div class="border-b border-neutral-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-900 dark:border-neutral-800 dark:bg-amber-950/40 dark:text-amber-200">
-  <div class="mx-auto flex max-w-7xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-    <p>
+<div x-data="{ closed: localStorage.getItem('ff-cookie-closed') === '1' }" x-show="!closed" x-cloak class="border-b border-neutral-200 bg-amber-50/80 px-4 py-3 text-sm text-amber-900 dark:border-neutral-800 dark:bg-amber-950/40 dark:text-amber-200">
+  <div class="mx-auto flex max-w-7xl items-center gap-3">
+    <p class="flex-1">
       This site uses a strictly-necessary session cookie to keep you signed in. It is not used for tracking or advertising.
       <a href="/privacy" class="font-medium underline underline-offset-2">Read our privacy policy</a>.
     </p>
+    <button
+      type="button"
+      @click="closed = true; localStorage.setItem('ff-cookie-closed', '1')"
+      class="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md border border-amber-200 text-amber-900 hover:bg-amber-100 dark:border-amber-800 dark:text-amber-200 dark:hover:bg-amber-900"
+      title="Dismiss"
+      aria-label="Dismiss cookie notice"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
   </div>
 </div>
 {% endif %}
